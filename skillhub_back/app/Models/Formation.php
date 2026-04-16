@@ -38,6 +38,14 @@ class Formation extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::deleting(function (Formation $formation): void {
+            // Garde-fou applicatif : supprime les modules meme si la contrainte SQL de cascade n'existe pas.
+            $formation->modules()->delete();
+        });
+    }
+
     /**
      * En BDD : chemin relatif (/storage/formations/…). En JSON API : URL absolue pour que le front (Vite, autre domaine) charge l’image sans deviner le port Laravel.
      * APP_URL dans .env doit correspondre à l’URL du serveur (ex. http://localhost:8000 avec php artisan serve).
