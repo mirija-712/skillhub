@@ -76,4 +76,10 @@ class Formation extends Model
     {
         return $this->hasMany(Inscription::class);
     }
+
+    /** Relation : modules (chapitres) de la formation */
+    public function modules(): HasMany
+    {
+        return $this->hasMany(FormationModule::class, 'formation_id')->orderBy('ordre');
+    }
 }

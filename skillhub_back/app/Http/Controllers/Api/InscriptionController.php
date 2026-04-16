@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Formation;
+use App\Models\FormationModule;
 use App\Models\Inscription;
+use App\Models\ModuleProgression;
 use App\Services\ActivityLogService;
 use Illuminate\Http\JsonResponse;
 
@@ -45,6 +47,14 @@ class InscriptionController extends Controller
         $inscription = Inscription::where('utilisateur_id', $userId)->where('formation_id', $formationId)->first();
         if (! $inscription) {
             return response()->json(['message' => 'Inscription introuvable.'], 404);
+        }
+
+        // Nettoyage du suivi des modules pour cet apprenant sur cette formation
+        $moduleIds = FormationModule::where('formation_id', $formationId)->pluck('id');
+        if ($moduleIds->isNotEmpty()) {
+            ModuleProgression::where('utilisateur_id', $userId)
+                ->whereIn('module_id', $moduleIds)
+                ->delete();
         }
 
         $inscription->delete();
