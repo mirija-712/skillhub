@@ -119,14 +119,14 @@ class ModuleController extends Controller
         ]);
     }
 
-    public function destroy(FormationModule $module): JsonResponse
+    public function destroy(Request $request, FormationModule $module): JsonResponse
     {
         $formation = Formation::find($module->formation_id);
         if (! $formation) {
             return response()->json(['message' => 'Formation introuvable'], 404);
         }
 
-        if ($formation->id_formateur !== (int) auth()->id()) {
+        if ($formation->id_formateur !== (int) $request->user()->id) {
             return response()->json(['message' => 'Vous ne pouvez gérer que vos propres formations.'], 403);
         }
 

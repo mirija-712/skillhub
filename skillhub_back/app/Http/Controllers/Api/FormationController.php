@@ -53,7 +53,7 @@ class FormationController extends Controller
         $query = Formation::with(['formateur:id,nom,prenom', 'categorie:id,libelle'])
             ->withCount('inscriptions');
 
-        $user = auth()->user();
+        $user = $request->user();
         if ($user && $user->role === 'formateur' && ! $request->has('id_formateur')) {
             $query->where('id_formateur', $user->id);
         }
@@ -276,9 +276,9 @@ class FormationController extends Controller
      *     @OA\Response(response="404", description="Formation introuvable")
      * )
      */
-    public function destroy(Formation $formation): JsonResponse
+    public function destroy(Request $request, Formation $formation): JsonResponse
     {
-        if ($formation->id_formateur !== (int) auth()->id()) {
+        if ($formation->id_formateur !== (int) $request->user()->id) {
             return response()->json([
                 'message' => 'Vous ne pouvez supprimer que vos propres formations.',
             ], 403);
@@ -286,7 +286,7 @@ class FormationController extends Controller
 
         try {
             $formationId = $formation->id;
-            $userId = (int) auth()->id();
+            $userId = (int) $request->user()->id;
 
             self::deleteStoredImageFile($formation->getRawOriginal('image_url'));
 

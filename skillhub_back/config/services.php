@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'authentification' => [
+        'base_url' => env('AUTHENTIFICATION_API_URL', 'http://localhost:8080/api'),
+        'timeout' => (int) env('AUTHENTIFICATION_API_TIMEOUT', 8),
+    ],
+
 ];

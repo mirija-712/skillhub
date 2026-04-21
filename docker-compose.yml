@@ -1,4 +1,21 @@
 services:
+  # API Spring — comptes utilisateurs (table utilisateurs partagée avec Laravel)
+  auth:
+    build:
+      context: ./authentification_back
+    container_name: skillhub_auth
+    ports:
+      - "8080:8080"
+    environment:
+      APP_MASTER_KEY: ${APP_MASTER_KEY:-docker_dev_master_key_change_me_min_32_chars}
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/skillhub?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: skillhub
+      SPRING_DATASOURCE_PASSWORD: skillhubpass
+      SERVER_PORT: "8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
   api:
     build:
       context: ./skillhub_back
@@ -19,12 +36,16 @@ services:
       MONGODB_URI: mongodb://mongo:27017
       MONGODB_DB: skillhub_activity_log
       MONGODB_COLLECTION: activity_logs
+      AUTHENTIFICATION_API_URL: http://auth:8080/api
+      AUTHENTIFICATION_API_TIMEOUT: "10"
     volumes:
       - ./skillhub_back/storage:/var/www/html/storage
     depends_on:
       mysql:
         condition: service_healthy
       mongo:
+        condition: service_started
+      auth:
         condition: service_started
 
   mysql:
@@ -61,6 +82,7 @@ services:
       context: ./skillhub_front
       args:
         VITE_API_URL: /api
+        VITE_AUTH_API_URL: /auth-api
     container_name: skillhub_front
     ports:
       - "5173:80"
@@ -68,6 +90,7 @@ services:
       VITE_API_URL: /api
     depends_on:
       - api
+      - auth
 
 volumes:
   mysql-data:

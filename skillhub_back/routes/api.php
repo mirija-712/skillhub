@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategorieFormationController;
 use App\Http\Controllers\Api\FormationController;
 use App\Http\Controllers\Api\InscriptionController;
@@ -9,20 +8,15 @@ use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| Routes API - Toutes les URLs sont préfixées par /api
+| Routes API — préfixe global /api (défini par Laravel)
+|--------------------------------------------------------------------------
+| Auth "compte" : gérée par le service Spring authentification_back (pas de routes /auth/* ici).
+|
+| Le groupe middleware auth.remote appelle Spring pour valider Authorization: Bearer, puis applique
+| formateur ou apprenant selon les sous-groupes. Les routes publiques (catégories, liste/détail formations)
+| restent accessibles sans jeton.
 |--------------------------------------------------------------------------
 */
-
-// --- Auth
-Route::prefix('auth')->group(function () {
-    Route::post('inscription', [AuthController::class, 'register']);
-    Route::post('connexion', [AuthController::class, 'login']);
-    Route::middleware('auth:api')->group(function () {
-        Route::post('deconnexion', [AuthController::class, 'logout']);
-        Route::get('me', [AuthController::class, 'me']);
-        Route::post('refresh', [AuthController::class, 'refresh']);
-    });
-});
 
 Route::get('categories', [CategorieFormationController::class, 'index']);
 
@@ -30,7 +24,7 @@ Route::get('categories', [CategorieFormationController::class, 'index']);
 Route::get('formations', [FormationController::class, 'index']);
 Route::get('formations/{id}', [FormationController::class, 'show'])->whereNumber('id');
 
-Route::middleware('auth:api')->group(function () {
+Route::middleware('auth.remote')->group(function () {
     Route::get('formations/{formationId}/modules', [ModuleController::class, 'index'])->whereNumber('formationId');
 
     Route::middleware('formateur')->group(function () {

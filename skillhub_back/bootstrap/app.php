@@ -27,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'formateur' => \App\Http\Middleware\VerifierFormateur::class,
             'apprenant' => \App\Http\Middleware\VerifierApprenant::class,
+            'auth.remote' => \App\Http\Middleware\AuthenticateWithAuthService::class,
         ]);
         // Evite la redirection vers une route "login" inexistante sur les routes API protégées.
         $middleware->redirectGuestsTo(function (Request $request) {

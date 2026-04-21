@@ -1,6 +1,8 @@
 # SkillHub — Frontend (React + Vite)
 
-Interface web du projet SkillHub : connexion, inscription, tableau de bord formateur, catalogue des formations et gestion des formations (CRUD). L’accès aux pages protégées est réservé aux **formateurs** ; les participants sont redirigés vers la page de connexion.
+Interface web du projet SkillHub : connexion, inscription, tableaux de bord, catalogue des formations et gestion des formations (CRUD). **L’inscription et la connexion compte** passent par **`authentification_back`** (URL `AUTH_API_URL`, en dev souvent le proxy **`/auth-api`**). Les appels **métier** (formations, modules, inscription à un cours…) passent par **`API_URL`** (préfixe `/api` → Laravel).
+
+Document d’ensemble : **[`../ARCHITECTURE-SKILLHUB.md`](../ARCHITECTURE-SKILLHUB.md)**.
 
 ---
 
@@ -41,12 +43,12 @@ skillhub_front/
 │   │   ├── espace-client/                # Apprenant : dashboard, apprendre (+ css/)
 │   │   ├── espace-formateur/             # Formateur : Home, MesAteliers, GestionAteliers (+ css/)
 │   │   └── README.md
-│   ├── constants.js                      # API_URL, IMG_PLACEHOLDER
+│   ├── constants.js                      # API_URL (Laravel), AUTH_API_URL (Spring), IMG_PLACEHOLDER
 │   ├── App.jsx                           # Définition des routes
 │   ├── main.jsx                          # Point d’entrée (React + BrowserRouter)
 │   └── index.css                         # Styles globaux
 ├── index.html
-├── vite.config.js                        # Proxy /api et /storage vers le backend (port 8000)
+├── vite.config.js                        # Proxy /api + /storage → Laravel ; /auth-api → Spring (/api)
 └── package.json
 ```
 
@@ -57,7 +59,7 @@ skillhub_front/
 | Commande | Description |
 |----------|-------------|
 | `npm install` | Installe les dépendances (React, React Router, Bootstrap, Vite). |
-| `npm run dev` | Lance le serveur de développement. App sur http://localhost:5173. Requêtes `/api` et `/storage` → backend (port 8000). |
+| `npm run dev` | Lance le serveur de développement. App sur http://localhost:5173. `/api` et `/storage` → Laravel (8000) ; `/auth-api` → authentification Spring (8080). |
 | `npm run build` | Build de production dans `dist/`. |
 | `npm run preview` | Prévisualise le build. |
 | `npm run lint` | ESLint (vérification du code). |
@@ -72,12 +74,10 @@ skillhub_front/
 2. Installer les dépendances :  
    `npm install`
 
-3. (Optionnel) Fichier `.env` à la racine :  
-   `VITE_API_URL=http://localhost:8000/api`  
-   Sinon le proxy Vite envoie `/api` vers le backend.
+3. (Optionnel) Fichier `.env` à la racine du front :  
+   `VITE_API_URL=/api` (défaut) et `VITE_AUTH_API_URL=/auth-api` (défaut) — les proxys Vite relaient vers Laravel et Spring.
 
-4. Démarrer le backend (autre terminal) :  
-   `cd skillhub_back` puis `php artisan serve`
+4. Démarrer **authentification_back** (Spring, port 8080), puis **skillhub_back** (Laravel, port 8000).
 
 5. Démarrer le frontend :  
    `npm run dev`  
@@ -97,16 +97,16 @@ skillhub_front/
 
 Les anciennes URLs `/Mes_Ateliers` et `/Gestion_Ateliers` redirigent vers les chemins ci-dessus.
 
-**ProtectedRoute** : appelle `/api/auth/me` pour valider le token et le rôle. Si non connecté ou mauvais rôle → redirection vers `/connexion`.
+**ProtectedRoute** : appelle **`authApi.me()`** → en pratique **`GET`** sur la base **`AUTH_API_URL`** (`/auth/me` côté Spring) pour valider le jeton et le rôle. Si non connecté ou mauvais rôle → redirection vers `/connexion`.
 
 ---
 
 ## 6. Communication avec le backend
 
-- **auth.js** : `/api/auth/inscription`, `/api/auth/connexion`, `/api/auth/deconnexion`, `/api/auth/me`. Token et utilisateur dans `localStorage`.
-- **formations.js** : `getFormations(params)` retourne `{ formations, meta }` (pagination). Endpoints : liste paginée, détail, création (JSON ou FormData avec image), mise à jour, suppression, catégories.
-- **utils.js** : `parseJsonResponse(response)` (message de fallback si réponse non JSON), `getMessageErreurApi(err, fallback)` (messages selon 401, 403, 422, etc.).
-- Proxy Vite : `/api` et `/storage` → `http://localhost:8000`. Le backend doit tourner sur le port 8000 en dev.
+- **auth.js** : inscription / connexion / `me` / déconnexion sur **`AUTH_API_URL`** (Spring). Normalise la réponse JSON (profil à plat ou objet `utilisateur`) pour le reste de l’app. Token et utilisateur dans `localStorage`.
+- **formations.js** (et **inscriptions.js**, etc.) : appels **`API_URL`** (Laravel) avec en-tête `Authorization: Bearer` du token Spring.
+- **utils.js** : `parseJsonResponse(response)`, `getMessageErreurApi(err, fallback)`.
+- Proxy Vite : `/api` + `/storage` → Laravel **8000** ; `/auth-api` → Spring **8080** (réécrit en `/api` côté Spring).
 
 ---
 

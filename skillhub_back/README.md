@@ -1,6 +1,10 @@
 # SkillHub — Backend (Laravel)
 
-Backend API REST du projet SkillHub. Authentification JWT, rôles **apprenant** (participant) et **formateur**, catégories, formations (CRUD, upload d’images), **inscriptions** (suivi de formations), et **historisation** (ActivityLogService, logs structurés).
+Backend API REST du projet SkillHub. **L’authentification compte (inscription / connexion / jeton) est déléguée au service Spring `authentification_back`** : Laravel n’expose plus de routes `/api/auth/*`. Les routes métier protégées utilisent le middleware **`auth.remote`**, qui vérifie le `Bearer` auprès de Spring puis injecte l’utilisateur dans la requête.
+
+Rôles **apprenant** (`participant`) et **formateur**, catégories, formations (CRUD, upload d’images), **inscriptions aux formations** (suivi de cours — *pas* la création de compte), et **historisation** (ActivityLogService, logs structurés).
+
+Architecture des trois services : **[`../ARCHITECTURE-SKILLHUB.md`](../ARCHITECTURE-SKILLHUB.md)**.
 
 ---
 
@@ -22,7 +26,6 @@ skillhub_back/
 │   │   ├── Controllers/
 │   │   │   ├── Controller.php
 │   │   │   └── Api/
-│   │   │       ├── AuthController.php       # Inscription, connexion, déconnexion, me, refresh
 │   │   │       ├── CategorieFormationController.php  # GET liste des catégories
 │   │   │       └── FormationController.php  # CRUD formations (index paginé, show, store, update, destroy)
 │   │   ├── Requests/
@@ -30,7 +33,9 @@ skillhub_back/
 │   │   │   ├── StoreFormationRequest.php   # title, description, price, duration, level, id_categorie?, image?
 │   │   │   └── UpdateFormationRequest.php  # nom, description, level, duree_heures, prix, statut, image?
 │   │   └── Middleware/
-│   │       └── VerifierFormateur.php       # Accès réservé aux formateurs
+│   │       ├── AuthenticateWithAuthService.php  # Valide Bearer via authentification_back (alias auth.remote)
+│   │       ├── VerifierFormateur.php       # Accès réservé aux formateurs
+│   │       └── VerifierApprenant.php       # Accès réservé aux participants (apprenants)
 │   ├── Models/
 │   │   ├── CategorieFormation.php
 │   │   ├── Formation.php                    # nom, description, duree_heures, prix, level, statut, image_url…
@@ -53,7 +58,7 @@ skillhub_back/
 │   ├── factories/
 │   └── seeders/
 ├── routes/
-│   └── api.php                             # Routes API (préfixe /api)
+│   └── api.php                             # Routes API (préfixe /api) ; groupe auth.remote pour le métier authentifié
 ├── storage/
 │   └── app/public/formations/              # Images uploadées (storage:link)
 ├── tests/
@@ -104,13 +109,11 @@ skillhub_back/
 
 Toutes les routes sont préfixées par **`/api`**.
 
-### Authentification (`/api/auth`)
+### Authentification des comptes
 
-- **POST** `/api/auth/inscription` — Inscription. Corps : `email`, `mot_de_passe`, `nom`, `prenom` (optionnel), `role` : `"participant"` (apprenant) ou `"formateur"`.
-- **POST** `/api/auth/connexion` — Connexion. Retourne JWT. Corps : `email`, `mot_de_passe`. Apprenants et formateurs peuvent se connecter.
-- **POST** `/api/auth/deconnexion` — Invalidation du token. En-tête : `Authorization: Bearer <token>`.
-- **GET** `/api/auth/me` — Utilisateur connecté. En-tête : `Authorization: Bearer <token>`.
-- **POST** `/api/auth/refresh` — Rafraîchit le token.
+Gérée par **`authentification_back`** (Spring), pas par ce dépôt. Configurer **`AUTHENTIFICATION_API_URL`** dans `.env` (ex. `http://127.0.0.1:8080/api`).
+
+Les routes métier ci-dessous exigent **`Authorization: Bearer <token>`** où le token est celui renvoyé par Spring à la connexion.
 
 ### Catégories (public)
 
@@ -145,7 +148,7 @@ Images : `storage/app/public/formations/`. Historisation : `App\Services\Activit
 
 ## 6. Modèles et base de données
 
-- **utilisateurs** : `id`, `email`, `mot_de_passe`, `nom`, `prenom` (nullable), `role` (participant, formateur), `created_at`, `updated_at`.
+- **utilisateurs** : `id`, `email`, `mot_de_passe`, `nom`, `prenom` (nullable), `role` (participant, formateur), `created_at`, `updated_at` ; colonnes supplémentaires possibles gérées par Spring (ex. jeton de session, lockout) selon migrations JPA.
 - **categorie_formations** : `id`, `libelle`, `created_at`, `updated_at`.
 - **formations** : id, id_formateur, id_categorie, nom, description, duree_heures, prix, level, statut, image_url, created_at, updated_at.
 - **inscriptions** : id, utilisateur_id, formation_id, progression, date_inscription, created_at.
@@ -165,7 +168,7 @@ Tests avec **SQLite en mémoire** (`phpunit.xml`).
 - `php artisan test` — Tous les tests.
 - `php artisan test --filter FormationControllerTest` — Tests formations uniquement.
 
-**FormationControllerTest** : 401 sans token ; 201 avec formateur valide ; apprenant ne peut pas créer de formation (403) ; formateur ne peut pas modifier la formation d’un autre (403). **AuthTest** : connexion valide (formateur et apprenant), 401 identifiants incorrects, 401 route protégée sans token.
+**FormationControllerTest** : 401 sans token ; 201 avec formateur valide ; apprenant ne peut pas créer de formation (403) ; formateur ne peut pas modifier la formation d’un autre (403). Les tests **AuthTest** historiques (routes `/api/auth/*` Laravel) peuvent être obsolètes si les routes auth locales ont été retirées.
 
 ---
 
@@ -174,7 +177,9 @@ Tests avec **SQLite en mémoire** (`phpunit.xml`).
 - `APP_KEY` — Clé application (`key:generate`).
 - `DB_CONNECTION` — `sqlite` ou `mysql`.
 - `DB_DATABASE` — Fichier SQLite ou nom de base MySQL.
-- Clé JWT — `php artisan jwt:secret`.
+- `AUTHENTIFICATION_API_URL` — URL base de l’API Spring (**avec** suffixe `/api`).
+- `AUTHENTIFICATION_API_TIMEOUT` — Timeout des appels HTTP vers Spring.
+- Clé JWT (`php artisan jwt:secret`) — encore présente dans la config si le package JWT est installé ; le flux SkillHub actuel utilise le **token Spring** sur les routes `auth.remote`.
 
 ---
 

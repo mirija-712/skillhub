@@ -1,32 +1,53 @@
-// ========== auth.js : tout ce qui touche à l'authentification ==========
-// Inscription, connexion, déconnexion, et stockage du token + infos utilisateur dans localStorage.
-
+/**
+ * Module client « compte utilisateur » : parle au service Spring {@code authentification_back}
+ * via la constante `AUTH_API_URL` (voir `constants.js`), pas à Laravel.
+ *
+ * <ul>
+ *   <li><b>inscription / connexion</b> : JSON aligné avec les DTO Spring ({@code mot_de_passe}, {@code role}, …).</li>
+ *   <li><b>Jeton</b> : UUID opaque renvoyé par Spring (pas un JWT Laravel) ; envoyé ensuite en Bearer vers Laravel pour le métier.</li>
+ *   <li><b>me</b> : vérifie le jeton et recharge le profil ; normalise la réponse (objet à plat ou clé utilisateur) pour l'UI.</li>
+ *   <li><b>deconnexion</b> : côté Spring l’endpoint peut être absent ; on nettoie toujours le localStorage.</li>
+ * </ul>
+ */
 import { parseJsonResponse } from "./utils";
-import { API_URL } from "../constants";
+import { AUTH_API_URL } from "../constants";
 
 export const authApi = {
-  // Envoie les données du formulaire d'inscription au back. Le back attend email, mot_de_passe, nom, prenom (optionnel), role.
+  /** Inscription compte : Spring attend email, mot_de_passe, nom, prenom (optionnel), role. */
   async inscription(data) {
-    const res = await fetch(`${API_URL}/auth/inscription`, {
+    const res = await fetch(`${AUTH_API_URL}/auth/inscription`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
     const json = await parseJsonResponse(res);
     if (!res.ok) throw { status: res.status, ...json };
-    return json;
+    return {
+      ...json,
+      message: json.message || "Utilisateur créé avec succès. Vous pouvez maintenant vous connecter.",
+    };
   },
 
-  // Connexion : on envoie email + mot_de_passe. Le back renvoie le token JWT + l'objet utilisateur.
+  /** Connexion : email + mot_de_passe → Spring renvoie token (UUID) + profil (champs à plat ou encapsulés). */
   async connexion(data) {
-    const res = await fetch(`${API_URL}/auth/connexion`, {
+    const res = await fetch(`${AUTH_API_URL}/auth/connexion`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
     const json = await parseJsonResponse(res);
     if (!res.ok) throw { status: res.status, ...json };
-    return json;
+    if (json.utilisateur && json.token) return json;
+    return {
+      token: json.token,
+      utilisateur: {
+        id: json.id,
+        email: json.email,
+        nom: json.nom,
+        prenom: json.prenom,
+        role: json.role,
+      },
+    };
   },
 
   // Vérifie si le token est encore valide et récupère les infos de l'utilisateur connecté.
@@ -34,18 +55,25 @@ export const authApi = {
   async me() {
     const token = localStorage.getItem("token");
     if (!token) return null;
-    const res = await fetch(`${API_URL}/auth/me`, {
+    const res = await fetch(`${AUTH_API_URL}/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     const json = await parseJsonResponse(res);
     if (!res.ok) return null;
-    return json.utilisateur;
+    if (json.utilisateur) return json.utilisateur;
+    return {
+      id: json.id,
+      email: json.email,
+      nom: json.nom,
+      prenom: json.prenom,
+      role: json.role,
+    };
   },
 
   async deconnexion() {
     const token = localStorage.getItem("token");
     if (!token) return { message: "Déconnexion réussie" };
-    const res = await fetch(`${API_URL}/auth/deconnexion`, {
+    const res = await fetch(`${AUTH_API_URL}/auth/deconnexion`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -53,7 +81,7 @@ export const authApi = {
       },
     });
     const json = await parseJsonResponse(res);
-    if (!res.ok) throw { status: res.status, ...json };
+    if (!res.ok) return { message: "Déconnexion locale effectuée." };
     return json;
   },
 
