@@ -28,7 +28,7 @@ Ce document recopie **le code source réel** du backend (fichiers du dépôt), a
 ```bash
 cd skillhub_back
 composer install
-cp .env.example .env   # si besoin
+cp .env.example .env  
 php artisan key:generate
 php artisan jwt:secret
 php artisan migrate
