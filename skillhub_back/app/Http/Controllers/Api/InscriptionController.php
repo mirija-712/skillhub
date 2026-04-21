@@ -67,17 +67,21 @@ class InscriptionController extends Controller
         $userId = (int) auth()->id();
 
         $inscriptions = Inscription::where('utilisateur_id', $userId)
+            ->whereHas('formation')
             ->with(['formation.formateur:id,nom,prenom', 'formation.categorie:id,libelle'])
             ->orderByDesc('date_inscription')
             ->get();
 
         $formations = $inscriptions->map(function (Inscription $ins) {
             $f = $ins->formation;
+            if (! $f) {
+                return null;
+            }
             $f->progression = $ins->progression;
             $f->date_inscription = $ins->date_inscription;
 
             return $f;
-        });
+        })->filter()->values();
 
         return response()->json(['formations' => $formations]);
     }
