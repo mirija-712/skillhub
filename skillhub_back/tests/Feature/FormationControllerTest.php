@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\CategorieFormation;
 use App\Models\Utilisateur;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class FormationControllerTest extends TestCase
@@ -20,9 +21,17 @@ class FormationControllerTest extends TestCase
         CategorieFormation::factory()->create();
     }
 
-    private function getAuthToken(): string
+    private function withRemoteAuthAs(int $userId, string $role, ?string $email = null): self
     {
-        return auth('api')->login($this->formateur);
+        Http::fake([
+            '*' => Http::response([
+                'id' => $userId,
+                'email' => $email ?? "user{$userId}@test.com",
+                'role' => $role,
+            ], 200),
+        ]);
+
+        return $this->withHeader('Authorization', 'Bearer test-token');
     }
 
     /**
@@ -46,7 +55,7 @@ class FormationControllerTest extends TestCase
      */
     public function test_post_formation_with_valid_user_returns_201(): void
     {
-        $response = $this->withHeader('Authorization', 'Bearer ' . $this->getAuthToken())
+        $response = $this->withRemoteAuthAs($this->formateur->id, 'formateur', $this->formateur->email)
             ->postJson('/api/formations', [
                 'title' => 'Formation PHP',
                 'description' => 'Description de la formation',
@@ -79,9 +88,8 @@ class FormationControllerTest extends TestCase
     public function test_apprenant_cannot_create_formation(): void
     {
         $apprenant = Utilisateur::factory()->participant()->create();
-        $token = auth('api')->login($apprenant);
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $response = $this->withRemoteAuthAs($apprenant->id, 'participant', $apprenant->email)
             ->postJson('/api/formations', [
                 'title' => 'Ma formation',
                 'description' => 'Description',
@@ -105,9 +113,8 @@ class FormationControllerTest extends TestCase
             'id_formateur' => $autreFormateur->id,
             'id_categorie' => $categorie->id,
         ]);
-        $token = auth('api')->login($this->formateur);
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $response = $this->withRemoteAuthAs($this->formateur->id, 'formateur', $this->formateur->email)
             ->putJson('/api/formations/' . $formation->id, [
                 'nom' => 'Pirate',
                 'description' => 'Modification non autorisée',
@@ -120,7 +127,7 @@ class FormationControllerTest extends TestCase
 
     public function test_post_formation_with_invalid_payload_returns_422(): void
     {
-        $response = $this->withHeader('Authorization', 'Bearer ' . $this->getAuthToken())
+        $response = $this->withRemoteAuthAs($this->formateur->id, 'formateur', $this->formateur->email)
             ->postJson('/api/formations', [
                 'title' => '',
                 'description' => '',
@@ -142,7 +149,7 @@ class FormationControllerTest extends TestCase
             'nom' => 'Ancien nom',
         ]);
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $this->getAuthToken())
+        $response = $this->withRemoteAuthAs($this->formateur->id, 'formateur', $this->formateur->email)
             ->putJson('/api/formations/' . $formation->id, [
                 'nom' => 'Nouveau nom',
                 'description' => 'Description mise à jour',
