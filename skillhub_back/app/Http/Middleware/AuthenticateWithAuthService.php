@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -29,10 +30,16 @@ class AuthenticateWithAuthService
             return response()->json(['message' => 'Token manquant ou invalide. Veuillez vous reconnecter.'], 401);
         }
 
-        $response = Http::timeout((int) config('services.authentification.timeout', 8))
-            ->acceptJson()
-            ->withToken($token)
-            ->get(rtrim((string) config('services.authentification.base_url', 'http://localhost:8080/api'), '/').'/auth/me');
+        try {
+            $response = Http::timeout((int) config('services.authentification.timeout', 8))
+                ->acceptJson()
+                ->withToken($token)
+                ->get(rtrim((string) config('services.authentification.base_url', 'http://localhost:8080/api'), '/').'/auth/me');
+        } catch (ConnectionException) {
+            return response()->json([
+                'message' => "Service d'authentification indisponible. Veuillez reessayer dans quelques instants.",
+            ], 503);
+        }
 
         if (! $response->successful()) {
             return response()->json(['message' => 'Token invalide ou expiré. Veuillez vous reconnecter.'], 401);

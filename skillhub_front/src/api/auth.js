@@ -85,6 +85,21 @@ export const authApi = {
     return json;
   },
 
+  async changePassword(data) {
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${AUTH_API_URL}/auth/change-password`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    const json = await parseJsonResponse(res);
+    if (!res.ok) throw { status: res.status, ...json };
+    return json;
+  },
+
   // Getters/setters pour le token et l'utilisateur. On les met en localStorage pour qu'ils survivent au rechargement de page.
   getToken() {
     return localStorage.getItem("token");

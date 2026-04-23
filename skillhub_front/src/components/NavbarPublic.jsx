@@ -69,6 +69,11 @@ export default function NavbarPublic() {
                   </Link>
                 </li>
                 <li>
+                  <Link className="nav-link" to="/changer-mot-de-passe" onClick={closeMenu}>
+                    Mot de passe
+                  </Link>
+                </li>
+                <li>
                   <button type="button" className="btn-deconnexion" onClick={handleDeconnexion}>
                     Déconnexion
                   </button>
@@ -115,6 +120,11 @@ export default function NavbarPublic() {
                   <li>
                     <Link className="nav-link" to={dashboardPath} onClick={closeMenu}>
                       {profilLabel || "Mon espace"}
+                    </Link>
+                  </li>
+                  <li>
+                    <Link className="nav-link" to="/changer-mot-de-passe" onClick={closeMenu}>
+                      Mot de passe
                     </Link>
                   </li>
                   <li>

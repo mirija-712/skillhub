@@ -11,6 +11,7 @@ import com.example.authentification_back.exception.AuthenticationFailedException
 import com.example.authentification_back.exception.InvalidInputException;
 import com.example.authentification_back.exception.ResourceConflictException;
 import com.example.authentification_back.repository.UserRepository;
+import com.example.authentification_back.validation.PasswordPolicyValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -43,15 +44,18 @@ public class AuthService {
 
 	private final UserRepository userRepository;
 	private final AuthSecurityProperties authProperties;
+	private final PasswordPolicyValidator passwordPolicyValidator;
 	private final Clock clock;
 	private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
 	public AuthService(
 			UserRepository userRepository,
 			AuthSecurityProperties authProperties,
+			PasswordPolicyValidator passwordPolicyValidator,
 			Clock clock) {
 		this.userRepository = userRepository;
 		this.authProperties = authProperties;
+		this.passwordPolicyValidator = passwordPolicyValidator;
 		this.clock = clock;
 	}
 
@@ -67,6 +71,10 @@ public class AuthService {
 		if (request.role() == null || !(request.role().equals("participant") || request.role().equals("formateur"))) {
 			throw new InvalidInputException("Le rôle doit être participant ou formateur");
 		}
+		if (!request.mot_de_passe().equals(request.confirm_mot_de_passe())) {
+			throw new InvalidInputException("Les mots de passe ne correspondent pas");
+		}
+		passwordPolicyValidator.assertCompliant(request.mot_de_passe());
 
 		User user = new User();
 		user.setEmail(email);
@@ -163,6 +171,7 @@ public class AuthService {
 		if (!request.newPassword().equals(request.confirmPassword())) {
 			throw new InvalidInputException("Les mots de passe ne correspondent pas");
 		}
+		passwordPolicyValidator.assertCompliant(request.newPassword());
 
 		user.setMotDePasse(passwordEncoder.encode(request.newPassword()));
 		userRepository.save(user);

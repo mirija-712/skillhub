@@ -5,6 +5,7 @@ import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import Accueil from "./pages/public/Accueil";
 import Login from "./connexion/login";
 import Inscription from "./connexion/inscription";
+import ChangerMotDePasse from "./connexion/changer-mot-de-passe";
 import FormationsCatalogue from "./pages/public/FormationsCatalogue";
 import FormationDetail from "./pages/public/FormationDetail";
 import DashboardApprenant from "./pages/espace-client/DashboardApprenant";
@@ -24,6 +25,14 @@ function App() {
         <Route path="/" element={<Accueil />} />
         <Route path="/connexion" element={<Login />} />
         <Route path="/inscription" element={<Inscription />} />
+        <Route
+          path="/changer-mot-de-passe"
+          element={
+            <ProtectedRoute roles={["participant", "formateur"]}>
+              <ChangerMotDePasse />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/formations" element={<FormationsCatalogue />} />
         <Route path="/formation/:id" element={<FormationDetail />} />
 

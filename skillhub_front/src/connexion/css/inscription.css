@@ -34,6 +34,70 @@
   box-shadow: 0 0 0 3px var(--auth-focus-ring, rgba(59, 130, 246, 0.25));
 }
 
+.password-strength-wrap {
+  margin-top: -0.25rem;
+}
+
+.password-strength-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.password-strength-fill {
+  height: 100%;
+  width: 0;
+  transition: width 0.2s ease;
+}
+
+.password-strength-bar.level-weak .password-strength-fill {
+  background: #dc2626;
+}
+
+.password-strength-bar.level-medium .password-strength-fill {
+  background: #f59e0b;
+}
+
+.password-strength-bar.level-strong .password-strength-fill {
+  background: #16a34a;
+}
+
+.password-strength-label {
+  margin: 0.4rem 0 0.2rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.password-strength-label.level-weak {
+  color: #dc2626;
+}
+
+.password-strength-label.level-medium {
+  color: #b45309;
+}
+
+.password-strength-label.level-strong {
+  color: #166534;
+}
+
+.password-rules {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.password-rules li.ok {
+  color: #166534;
+}
+
+.password-rules li.ko {
+  color: #64748b;
+}
+
 @media (max-width: 480px) {
   .ligne-auth {
     grid-template-columns: 1fr;

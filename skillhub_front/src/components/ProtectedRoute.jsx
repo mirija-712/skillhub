@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { authApi } from "../api/auth";
 
@@ -6,9 +6,13 @@ import { authApi } from "../api/auth";
  * Affiche les enfants seulement si l'utilisateur est connecté avec le rôle attendu (participant ou formateur).
  * Sinon redirection vers /connexion (avec retour prévu via state.from).
  */
-export default function ProtectedRoute({ children, role }) {
+export default function ProtectedRoute({ children, role, roles }) {
   const [verification, setVerification] = useState({ ok: null, loading: true });
   const location = useLocation();
+  const allowedRoles = useMemo(
+    () => (Array.isArray(roles) && roles.length > 0 ? roles : [role]).filter(Boolean),
+    [role, roles],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -32,7 +36,7 @@ export default function ProtectedRoute({ children, role }) {
           setVerification({ ok: false, loading: false });
           return;
         }
-        if (utilisateur.role !== role) {
+        if (!allowedRoles.includes(utilisateur.role)) {
           authApi.removeToken();
           setVerification({ ok: false, loading: false });
           return;
@@ -50,7 +54,7 @@ export default function ProtectedRoute({ children, role }) {
     return () => {
       cancelled = true;
     };
-  }, [role]);
+  }, [allowedRoles]);
 
   if (verification.loading) {
     return <div className="d-flex justify-content-center align-items-center min-vh-100">Chargement...</div>;

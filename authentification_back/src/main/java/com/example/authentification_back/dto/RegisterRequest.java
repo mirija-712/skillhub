@@ -4,6 +4,8 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /** Corps JSON compatible avec le formulaire SkillHub. */
 public record RegisterRequest(
@@ -12,7 +14,13 @@ public record RegisterRequest(
 		String email,
 		@NotBlank(message = "Le mot de passe est obligatoire")
 		@Size(min = 6, message = "Le mot de passe doit contenir au moins 6 caractères")
+		@JsonProperty("mot_de_passe")
+		@JsonAlias({"password"})
 		String mot_de_passe,
+		@NotBlank(message = "La confirmation du mot de passe est obligatoire")
+		@JsonProperty("confirm_mot_de_passe")
+		@JsonAlias({"passwordConfirm", "confirmPassword"})
+		String confirm_mot_de_passe,
 		@NotBlank(message = "Le nom est obligatoire")
 		@Size(max = 100, message = "Le nom ne peut pas dépasser 100 caractères")
 		String nom,

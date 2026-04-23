@@ -56,6 +56,11 @@ function Header() {
                     Gestion d&apos;Ateliers
                   </Link>
                 </li>
+                <li className="nav-item">
+                  <Link className="nav-link" to="/changer-mot-de-passe">
+                    Mot de passe
+                  </Link>
+                </li>
               </ul>
               <button
                 type="button"

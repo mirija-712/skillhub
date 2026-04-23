@@ -5,6 +5,7 @@ import NavbarPublic from "../components/NavbarPublic";
 import Footer from "../components/Footer";
 import { authApi } from "../api/auth";
 import { getMessageErreurApi } from "../api/utils";
+import { evaluatePassword } from "./passwordPolicy";
 import "./css/login.css";
 import "./css/inscription.css";
 
@@ -13,6 +14,7 @@ function Inscription() {
   const [formData, setFormData] = useState({
     email: "",
     mot_de_passe: "",
+    confirm_mot_de_passe: "",
     nom: "",
     prenom: "",
     role: "participant",
@@ -20,6 +22,10 @@ function Inscription() {
   const [erreur, setErreur] = useState("");
   const [succes, setSucces] = useState("");
   const [chargement, setChargement] = useState(false);
+  const passwordState = evaluatePassword(formData.mot_de_passe);
+  const confirmationOk =
+    formData.confirm_mot_de_passe.length > 0 &&
+    formData.mot_de_passe === formData.confirm_mot_de_passe;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -32,6 +38,14 @@ function Inscription() {
     e.preventDefault();
     setErreur("");
     setSucces("");
+    if (!passwordState.isCompliant) {
+      setErreur("Le mot de passe ne respecte pas la politique de sécurité.");
+      return;
+    }
+    if (!confirmationOk) {
+      setErreur("La confirmation du mot de passe ne correspond pas.");
+      return;
+    }
     setChargement(true);
     try {
       const res = await authApi.inscription(formData);
@@ -42,6 +56,7 @@ function Inscription() {
       setFormData({
         email: "",
         mot_de_passe: "",
+        confirm_mot_de_passe: "",
         nom: "",
         prenom: "",
         role: formData.role,
@@ -153,9 +168,53 @@ function Inscription() {
                 value={formData.mot_de_passe}
                 onChange={handleChange}
                 required
-                minLength={6}
+                minLength={12}
                 autoComplete="new-password"
               />
+            </div>
+
+            <div className="password-strength-wrap" aria-live="polite">
+              <div className={`password-strength-bar level-${passwordState.level}`}>
+                <div className="password-strength-fill" style={{ width: `${(passwordState.score / 5) * 100}%` }} />
+              </div>
+              <p className={`password-strength-label level-${passwordState.level}`}>
+                Force:{" "}
+                {passwordState.level === "strong"
+                  ? "fort"
+                  : passwordState.level === "medium"
+                    ? "moyen"
+                    : passwordState.level === "weak"
+                      ? "faible"
+                      : "en attente"}
+              </p>
+              <ul className="password-rules">
+                {passwordState.checks.map((rule) => (
+                  <li key={rule.key} className={rule.ok ? "ok" : "ko"}>
+                    {rule.ok ? "✓" : "•"} {rule.label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="champ-auth">
+              <label htmlFor="inscription-confirm-mot-de-passe" className="libelle-auth">
+                Confirmer le mot de passe
+              </label>
+              <input
+                id="inscription-confirm-mot-de-passe"
+                name="confirm_mot_de_passe"
+                type="password"
+                className="champ-saisie-auth"
+                placeholder="••••••••"
+                value={formData.confirm_mot_de_passe}
+                onChange={handleChange}
+                required
+                minLength={12}
+                autoComplete="new-password"
+              />
+              {formData.confirm_mot_de_passe.length > 0 && !confirmationOk && (
+                <p className="erreur-auth">La confirmation doit correspondre au mot de passe.</p>
+              )}
             </div>
 
             {succes && <p className="succes-auth">{succes}</p>}
@@ -163,7 +222,7 @@ function Inscription() {
             <button
               type="submit"
               className="bouton-auth bouton-auth-principal"
-              disabled={chargement}
+              disabled={chargement || !passwordState.isCompliant || !confirmationOk}
             >
               {chargement ? "Inscription..." : "S'inscrire"}
             </button>
