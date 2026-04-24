@@ -12,6 +12,12 @@ services:
       SPRING_DATASOURCE_USERNAME: skillhub
       SPRING_DATASOURCE_PASSWORD: skillhubpass
       SERVER_PORT: "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 8080"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
     depends_on:
       mysql:
         condition: service_healthy
@@ -46,7 +52,7 @@ services:
       mongo:
         condition: service_started
       auth:
-        condition: service_started
+        condition: service_healthy
 
   mysql:
     image: mysql:8.0

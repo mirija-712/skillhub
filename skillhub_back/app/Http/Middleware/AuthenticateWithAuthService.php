@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -30,15 +31,35 @@ class AuthenticateWithAuthService
             return response()->json(['message' => 'Token manquant ou invalide. Veuillez vous reconnecter.'], 401);
         }
 
+        $authBaseUrl = rtrim((string) config('services.authentification.base_url', ''), '/');
+        // En conteneur, localhost pointe vers le conteneur Laravel lui-même; on force le service Docker "auth".
+        if ($authBaseUrl === '' || (file_exists('/.dockerenv') && str_contains($authBaseUrl, 'localhost'))) {
+            $authBaseUrl = 'http://auth:8080/api';
+        }
+
         try {
             $response = Http::timeout((int) config('services.authentification.timeout', 8))
+                ->retry(2, 200, throw: false)
                 ->acceptJson()
                 ->withToken($token)
-                ->get(rtrim((string) config('services.authentification.base_url', 'http://localhost:8080/api'), '/').'/auth/me');
-        } catch (ConnectionException) {
-            return response()->json([
+                ->get($authBaseUrl.'/auth/me');
+        } catch (ConnectionException $e) {
+            Log::warning('Auth remote unavailable', [
+                'auth_base_url' => $authBaseUrl,
+                'path' => $request->path(),
+                'method' => $request->method(),
+                'error' => $e->getMessage(),
+            ]);
+            error_log('Auth remote unavailable: '.$e->getMessage());
+
+            $payload = [
                 'message' => "Service d'authentification indisponible. Veuillez reessayer dans quelques instants.",
-            ], 503);
+            ];
+            if (config('app.debug')) {
+                $payload['debug'] = $e->getMessage();
+            }
+
+            return response()->json($payload, 503);
         }
 
         if (! $response->successful()) {
