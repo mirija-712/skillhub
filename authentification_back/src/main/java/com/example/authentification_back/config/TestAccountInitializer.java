@@ -18,8 +18,7 @@ public class TestAccountInitializer implements CommandLineRunner {
 	private static final Logger log = LoggerFactory.getLogger(TestAccountInitializer.class);
 
 	public static final String TEST_EMAIL = "toto@example.com";
-
-	public static final String TEST_PASSWORD_PLAIN = "Pwd1234!abcd";
+	private static final String TEST_PASSWORD_ENV = "TEST_ACCOUNT_PASSWORD";
 
 	private final UserRepository userRepository;
 	private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
@@ -34,9 +33,14 @@ public class TestAccountInitializer implements CommandLineRunner {
 			if (userRepository.existsByEmail(TEST_EMAIL)) {
 				return;
 			}
+			String passwordFromEnv = System.getenv(TEST_PASSWORD_ENV);
+			if (passwordFromEnv == null || passwordFromEnv.isBlank()) {
+				log.warn("Compte démo non créé: variable d'environnement {} absente.", TEST_PASSWORD_ENV);
+				return;
+			}
 			User user = new User();
 			user.setEmail(TEST_EMAIL);
-			user.setMotDePasse(passwordEncoder.encode(TEST_PASSWORD_PLAIN));
+			user.setMotDePasse(passwordEncoder.encode(passwordFromEnv));
 			user.setNom("Test");
 			user.setPrenom("Toto");
 			user.setRole("participant");
