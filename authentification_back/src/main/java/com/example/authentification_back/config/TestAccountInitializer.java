@@ -19,6 +19,8 @@ public class TestAccountInitializer implements CommandLineRunner {
 
 	public static final String TEST_EMAIL = "toto@example.com";
 	private static final String TEST_PASSWORD_ENV = "TEST_ACCOUNT_PASSWORD";
+	private static final String FALLBACK_PASSWORD_ENV = "APP_MASTER_KEY";
+	public static final String TEST_PASSWORD_PLAIN = resolveTestPassword();
 
 	private final UserRepository userRepository;
 	private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
@@ -33,14 +35,16 @@ public class TestAccountInitializer implements CommandLineRunner {
 			if (userRepository.existsByEmail(TEST_EMAIL)) {
 				return;
 			}
-			String passwordFromEnv = System.getenv(TEST_PASSWORD_ENV);
-			if (passwordFromEnv == null || passwordFromEnv.isBlank()) {
-				log.warn("Compte démo non créé: variable d'environnement {} absente.", TEST_PASSWORD_ENV);
+			if (TEST_PASSWORD_PLAIN == null || TEST_PASSWORD_PLAIN.isBlank()) {
+				log.warn(
+						"Compte démo non créé: aucune variable d'environnement {} ou {} n'est définie.",
+						TEST_PASSWORD_ENV,
+						FALLBACK_PASSWORD_ENV);
 				return;
 			}
 			User user = new User();
 			user.setEmail(TEST_EMAIL);
-			user.setMotDePasse(passwordEncoder.encode(passwordFromEnv));
+			user.setMotDePasse(passwordEncoder.encode(TEST_PASSWORD_PLAIN));
 			user.setNom("Test");
 			user.setPrenom("Toto");
 			user.setRole("participant");
@@ -51,5 +55,14 @@ public class TestAccountInitializer implements CommandLineRunner {
 							+ "Après `php artisan migrate`, redémarre le service auth si besoin. Cause : {}",
 					e.getMessage());
 		}
+	}
+
+	private static String resolveTestPassword() {
+		String password = System.getenv(TEST_PASSWORD_ENV);
+		if (password != null && !password.isBlank()) {
+			return password;
+		}
+		String fallback = System.getenv(FALLBACK_PASSWORD_ENV);
+		return (fallback == null) ? "" : fallback;
 	}
 }
