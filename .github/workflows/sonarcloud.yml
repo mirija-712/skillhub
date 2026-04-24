@@ -39,6 +39,7 @@ jobs:
         run: |
           chmod +x mvnw
           ./mvnw -B verify
+          ./mvnw -B dependency:copy-dependencies -DincludeScope=compile -DoutputDirectory=target/dependency
 
       - name: Setup PHP 8.2
         uses: shivammathur/setup-php@v2
