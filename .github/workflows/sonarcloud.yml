@@ -40,6 +40,7 @@ jobs:
           chmod +x mvnw
           ./mvnw -B verify
           ./mvnw -B dependency:copy-dependencies -DincludeScope=compile -DoutputDirectory=target/dependency
+          ls -la target/dependency | head -n 20
 
       - name: Setup PHP 8.2
         uses: shivammathur/setup-php@v2
@@ -75,6 +76,10 @@ jobs:
 
       - name: SonarCloud scan
         uses: SonarSource/sonarqube-scan-action@v5
+        with:
+          args: >
+            -Dsonar.java.binaries=authentification_back/target/classes
+            -Dsonar.java.libraries=authentification_back/target/dependency/*.jar
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
