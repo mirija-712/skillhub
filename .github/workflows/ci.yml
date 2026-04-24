@@ -194,6 +194,40 @@ jobs:
           chmod +x mvnw
           ./mvnw -B verify
 
+      - name: Setup PHP for Sonar coverage
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: mbstring, xml, pdo_sqlite, sqlite3, bcmath, intl, openssl, zip
+          coverage: xdebug
+
+      - name: Generate PHPUnit coverage report
+        if: ${{ env.SONAR_TOKEN != '' }}
+        working-directory: skillhub_back
+        run: |
+          composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-mongodb
+          cp .env.example .env
+          echo "MONGODB_URI=" >> .env
+          php artisan key:generate
+          mkdir -p reports
+          ./vendor/bin/phpunit --log-junit reports/junit.xml --coverage-clover reports/clover.xml
+
+      - name: Setup Node.js for Sonar coverage
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: skillhub_front/package-lock.json
+
+      - name: Generate Vitest coverage report
+        if: ${{ env.SONAR_TOKEN != '' }}
+        working-directory: skillhub_front
+        run: |
+          npm ci
+          npx vitest run --coverage --coverage.reporter=lcov
+
       - name: SonarCloud Scan
         if: ${{ env.SONAR_TOKEN != '' }}
         uses: SonarSource/sonarqube-scan-action@v6
