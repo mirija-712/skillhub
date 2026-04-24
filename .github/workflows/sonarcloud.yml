@@ -51,6 +51,8 @@ jobs:
 
       - name: Run Laravel tests (JUnit + Clover)
         working-directory: skillhub_back
+        env:
+          XDEBUG_MODE: coverage
         run: |
           composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-mongodb
           cp .env.example .env

@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:coverage": "vitest run --pool=threads --coverage.enabled --coverage.provider=v8 --coverage.reporter=lcov --coverage.reporter=text",
+    "test:coverage": "vitest run --pool=threads --coverage.enabled --coverage.provider=v8 --coverage.reporter=lcov --coverage.reporter=text --coverage.include=src/**/*.{js,jsx,ts,tsx}",
     "test:watch": "vitest"
   },
   "dependencies": {
