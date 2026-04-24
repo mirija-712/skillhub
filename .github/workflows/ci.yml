@@ -192,7 +192,7 @@ jobs:
           APP_MASTER_KEY: test_master_key_for_ci_only
         run: |
           chmod +x mvnw
-          ./mvnw -B verify
+          ./mvnw -B verify dependency:copy-dependencies -DincludeScope=test
 
       - name: SonarCloud Scan
         if: ${{ env.SONAR_TOKEN != '' }}
