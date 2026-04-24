@@ -81,7 +81,6 @@ Login toto : mot de passe `Pwd1234!abcd`, puis `GET /api/me` avec le `Bearer` re
 
 - **Tests** : `mvn test` (profil `test`, H2).  
 - **Couverture (JaCoCo)** : `mvn verify` → rapport `target/site/jacoco/index.html` (objectif réaliste ≥ 60 %).  
-- **SonarCloud** : connecter le dépôt, corriger bugs / vulnérabilités majeurs, viser le Quality Gate (voir énoncé TP2).
 
 ## Journal
 
@@ -95,8 +94,7 @@ TP2 corrige le stockage (**hash** + politique + **lockout**), mais le jeton rest
 
 - **Guide détaillé (workflow, schémas)** : [`../Doc/Guide/GUIDE_TP4.md`](../Doc/Guide/GUIDE_TP4.md).
 - **Démarrage** : définir `APP_MASTER_KEY` dans l’environnement (obligatoire, pas de valeur par défaut dans le code).
-- **CI** : workflow [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) — `mvn verify` + SonarCloud ; clé factice `APP_MASTER_KEY=test_master_key_for_ci_only` ; secret **`SONAR_TOKEN`** sur GitHub.
-- **SonarCloud** : organisation / `projectKey` dans le `pom.xml` racine ; ne pas commiter de jetons.
+- **CI** : workflow [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) — `mvn verify` ; clé factice `APP_MASTER_KEY=test_master_key_for_ci_only`.
 
 Guide détaillé : `../Doc/Guide/GUIDE_TP2.md`.
 
