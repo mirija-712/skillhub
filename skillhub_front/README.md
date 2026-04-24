@@ -2,7 +2,36 @@
 
 Interface web du projet SkillHub : connexion, inscription, tableaux de bord, catalogue des formations et gestion des formations (CRUD). **L’inscription et la connexion compte** passent par **`authentification_back`** (URL `AUTH_API_URL`, en dev souvent le proxy **`/auth-api`**). Les appels **métier** (formations, modules, inscription à un cours…) passent par **`API_URL`** (préfixe `/api` → Laravel).
 
-Document d’ensemble : **[`../ARCHITECTURE-SKILLHUB.md`](../ARCHITECTURE-SKILLHUB.md)**.
+Document d’ensemble : **[`../README.md`](../README.md)**.
+
+## Architecture du service Frontend
+
+```text
+skillhub_front/
+├─ public/                       # Assets statiques
+├─ src/
+│  ├─ api/                       # Appels HTTP (auth, formations, inscriptions, utils)
+│  ├─ components/                # Composants reutilisables
+│  │  └─ css/
+│  ├─ connexion/                 # Pages login/inscription/changement mdp
+│  │  └─ css/
+│  ├─ pages/
+│  │  ├─ public/                 # Pages publiques (accueil, catalogue, detail)
+│  │  ├─ espace-client/          # Pages apprenant
+│  │  ├─ espace-formateur/       # Pages formateur
+│  │  └─ README.md
+│  ├─ constants.js               # API_URL / AUTH_API_URL
+│  ├─ App.jsx                    # Routage principal
+│  ├─ main.jsx                   # Entree application
+│  └─ index.css
+├─ vite.config.js                # Proxy /api, /auth-api, /storage
+├─ package.json
+└─ README.md
+```
+
+- Le frontend se charge de l’experience utilisateur et des redirections.
+- Le token recu depuis Spring est stocke localement et envoye en Bearer.
+- Les routes protegees sont controlees cote UI (`ProtectedRoute`) puis revalidees cote backend.
 
 ---
 
@@ -107,6 +136,23 @@ Les anciennes URLs `/Mes_Ateliers` et `/Gestion_Ateliers` redirigent vers les ch
 - **formations.js** (et **inscriptions.js**, etc.) : appels **`API_URL`** (Laravel) avec en-tête `Authorization: Bearer` du token Spring.
 - **utils.js** : `parseJsonResponse(response)`, `getMessageErreurApi(err, fallback)`.
 - Proxy Vite : `/api` + `/storage` → Laravel **8000** ; `/auth-api` → Spring **8080** (réécrit en `/api` côté Spring).
+
+### Cas metier : limite a 5 formations pour un etudiant
+
+- L’action d’inscription passe par `POST /api/formations/{formationId}/inscription` (Laravel).
+- Si la limite est atteinte, l’API renvoie une erreur (ex: `422`) avec un message explicite.
+- Le frontend doit afficher ce message sans casser l’etat de la page.
+
+Exemple de gestion UI :
+
+```js
+try {
+  await inscriptionsApi.inscrire(formationId);
+  setSuccess("Inscription enregistree.");
+} catch (err) {
+  setError(err?.message || "Impossible de vous inscrire.");
+}
+```
 
 ---
 

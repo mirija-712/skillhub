@@ -44,7 +44,7 @@ class TestAccountInitializerTest {
 		assertEquals("Test", saved.getNom());
 		assertEquals("Toto", saved.getPrenom());
 		assertEquals("participant", saved.getRole());
-		assertTrue(encoder.matches(TestAccountInitializer.TEST_PASSWORD_PLAIN, saved.getMotDePasse()));
+		assertTrue(encoder.matches(TestAccountInitializer.TEST_ACCOUNT_SECRET, saved.getMotDePasse()));
 	}
 
 	@Test

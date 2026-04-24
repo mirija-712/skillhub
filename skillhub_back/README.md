@@ -4,7 +4,36 @@ Backend API REST du projet SkillHub. **L’authentification compte (inscription 
 
 Rôles **apprenant** (`participant`) et **formateur**, catégories, formations (CRUD, upload d’images), **inscriptions aux formations** (suivi de cours — *pas* la création de compte), et **historisation** (ActivityLogService, logs structurés).
 
-Architecture des trois services : **[`../ARCHITECTURE-SKILLHUB.md`](../ARCHITECTURE-SKILLHUB.md)**.
+Architecture des trois services : **[`../README.md`](../README.md)**.
+
+## Architecture du service Laravel
+
+```text
+skillhub_back/
+├─ app/
+│  ├─ Http/
+│  │  ├─ Controllers/Api/       # Endpoints metier (formations, modules, inscriptions)
+│  │  ├─ Middleware/            # auth.remote, formateur, apprenant
+│  │  └─ Requests/              # Validation des donnees entrantes
+│  ├─ Models/                   # Entites Eloquent
+│  ├─ Services/                 # Services metier (ex: ActivityLogService)
+│  └─ Providers/
+├─ routes/
+│  └─ api.php                   # Definition des routes REST
+├─ database/
+│  ├─ migrations/               # Schema MySQL
+│  ├─ factories/
+│  └─ seeders/
+├─ storage/                     # Fichiers (images formations, logs)
+├─ config/
+├─ tests/
+├─ artisan
+└─ README.md
+```
+
+- Ce service porte la **logique metier** (formations, modules, inscriptions, progression).
+- La validation du token est deleguee a Spring via le middleware `auth.remote`.
+- Les regles d'acces par role sont appliquees ici (`formateur`, `apprenant`).
 
 ---
 
@@ -141,6 +170,23 @@ Les routes métier ci-dessous exigent **`Authorization: Bearer <token>`** où le
 - **DELETE** `/api/formations/{formationId}/inscription` — Se désinscrire.
 - **GET** `/api/apprenant/formations` — Formations suivies (avec progression).
 - **PUT** `/api/formations/{formationId}/progression` — Mettre à jour la progression (0–100).
+
+#### Regle metier : maximum 5 formations par apprenant
+
+Lors d’un `POST /api/formations/{formationId}/inscription`, l’API doit refuser l’inscription si l’apprenant a deja 5 inscriptions actives.
+
+Exemple de controle dans `InscriptionController::store` :
+
+```php
+$inscriptionsCount = Inscription::where('utilisateur_id', $userId)->count();
+if ($inscriptionsCount >= 5) {
+    return response()->json([
+        'message' => 'Vous ne pouvez pas vous inscrire à plus de 5 formations.',
+    ], 422);
+}
+```
+
+Ce controle vient **apres** la verification "deja inscrit", et **avant** `Inscription::create(...)`.
 
 Images : `storage/app/public/formations/`. Historisation : `App\Services\ActivityLogService` (consultation, inscription, création, modification, suppression de formations).
 

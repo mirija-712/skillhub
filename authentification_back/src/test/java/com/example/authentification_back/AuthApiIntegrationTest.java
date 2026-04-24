@@ -125,7 +125,7 @@ class AuthApiIntegrationTest {
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(loginHmacJson(
 								TestAccountInitializer.TEST_EMAIL,
-								TestAccountInitializer.TEST_PASSWORD_PLAIN,
+								TestAccountInitializer.TEST_ACCOUNT_SECRET,
 								nonce,
 								ts)))
 				.andExpect(status().isOk())
@@ -164,7 +164,7 @@ class AuthApiIntegrationTest {
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(loginHmacJson(
 								TestAccountInitializer.TEST_EMAIL,
-								TestAccountInitializer.TEST_PASSWORD_PLAIN,
+								TestAccountInitializer.TEST_ACCOUNT_SECRET,
 								nonce,
 								ts)))
 				.andExpect(status().isUnauthorized())
@@ -179,7 +179,7 @@ class AuthApiIntegrationTest {
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(loginHmacJson(
 								TestAccountInitializer.TEST_EMAIL,
-								TestAccountInitializer.TEST_PASSWORD_PLAIN,
+								TestAccountInitializer.TEST_ACCOUNT_SECRET,
 								nonce,
 								ts)))
 				.andExpect(status().isUnauthorized())
@@ -192,7 +192,7 @@ class AuthApiIntegrationTest {
 		long ts = Instant.now().getEpochSecond();
 		String body = loginHmacJson(
 				TestAccountInitializer.TEST_EMAIL,
-				TestAccountInitializer.TEST_PASSWORD_PLAIN,
+				TestAccountInitializer.TEST_ACCOUNT_SECRET,
 				nonce,
 				ts);
 		mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(body))
@@ -227,7 +227,7 @@ class AuthApiIntegrationTest {
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(loginHmacJson(
 								TestAccountInitializer.TEST_EMAIL,
-								TestAccountInitializer.TEST_PASSWORD_PLAIN,
+								TestAccountInitializer.TEST_ACCOUNT_SECRET,
 								nonce,
 								ts)))
 				.andExpect(status().isOk())
@@ -330,7 +330,7 @@ class AuthApiIntegrationTest {
 	void change_password_rejects_when_confirmation_differs() throws Exception {
 		String token = loginAndExtractToken(
 				TestAccountInitializer.TEST_EMAIL,
-				TestAccountInitializer.TEST_PASSWORD_PLAIN);
+				TestAccountInitializer.TEST_ACCOUNT_SECRET);
 
 		mockMvc.perform(put("/api/auth/change-password")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -344,7 +344,7 @@ class AuthApiIntegrationTest {
 	void change_password_rejects_weak_new_password() throws Exception {
 		String token = loginAndExtractToken(
 				TestAccountInitializer.TEST_EMAIL,
-				TestAccountInitializer.TEST_PASSWORD_PLAIN);
+				TestAccountInitializer.TEST_ACCOUNT_SECRET);
 
 		mockMvc.perform(put("/api/auth/change-password")
 						.contentType(MediaType.APPLICATION_JSON)

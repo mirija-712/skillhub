@@ -18,9 +18,9 @@ public class TestAccountInitializer implements CommandLineRunner {
 	private static final Logger log = LoggerFactory.getLogger(TestAccountInitializer.class);
 
 	public static final String TEST_EMAIL = "toto@example.com";
-	private static final String TEST_PASSWORD_ENV = "TEST_ACCOUNT_PASSWORD";
-	private static final String FALLBACK_PASSWORD_ENV = "APP_MASTER_KEY";
-	public static final String TEST_PASSWORD_PLAIN = resolveTestPassword();
+	private static final String TEST_ACCOUNT_SECRET_ENV = "TEST_ACCOUNT_SECRET";
+	private static final String FALLBACK_SECRET_ENV = "APP_MASTER_KEY";
+	public static final String TEST_ACCOUNT_SECRET = resolveTestSecret();
 
 	private final UserRepository userRepository;
 	private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
@@ -35,16 +35,16 @@ public class TestAccountInitializer implements CommandLineRunner {
 			if (userRepository.existsByEmail(TEST_EMAIL)) {
 				return;
 			}
-			if (TEST_PASSWORD_PLAIN == null || TEST_PASSWORD_PLAIN.isBlank()) {
+			if (TEST_ACCOUNT_SECRET == null || TEST_ACCOUNT_SECRET.isBlank()) {
 				log.warn(
 						"Compte démo non créé: aucune variable d'environnement {} ou {} n'est définie.",
-						TEST_PASSWORD_ENV,
-						FALLBACK_PASSWORD_ENV);
+						TEST_ACCOUNT_SECRET_ENV,
+						FALLBACK_SECRET_ENV);
 				return;
 			}
 			User user = new User();
 			user.setEmail(TEST_EMAIL);
-			user.setMotDePasse(passwordEncoder.encode(TEST_PASSWORD_PLAIN));
+			user.setMotDePasse(passwordEncoder.encode(TEST_ACCOUNT_SECRET));
 			user.setNom("Test");
 			user.setPrenom("Toto");
 			user.setRole("participant");
@@ -57,12 +57,12 @@ public class TestAccountInitializer implements CommandLineRunner {
 		}
 	}
 
-	private static String resolveTestPassword() {
-		String password = System.getenv(TEST_PASSWORD_ENV);
-		if (password != null && !password.isBlank()) {
-			return password;
+	private static String resolveTestSecret() {
+		String secret = System.getenv(TEST_ACCOUNT_SECRET_ENV);
+		if (secret != null && !secret.isBlank()) {
+			return secret;
 		}
-		String fallback = System.getenv(FALLBACK_PASSWORD_ENV);
+		String fallback = System.getenv(FALLBACK_SECRET_ENV);
 		return (fallback == null) ? "" : fallback;
 	}
 }
