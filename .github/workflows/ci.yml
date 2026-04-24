@@ -163,7 +163,6 @@ jobs:
             --build-arg VITE_AUTH_API_URL=/auth-api \
             ./skillhub_front
 
-<<<<<<< HEAD
   sonarcloud:
     name: SonarCloud — Monorepo scan (auth + back + front)
     runs-on: ubuntu-latest
@@ -198,6 +197,3 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@v5
         env:
           SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
-=======
->>>>>>> dev
-
