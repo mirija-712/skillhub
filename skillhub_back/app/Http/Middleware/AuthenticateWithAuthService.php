@@ -31,38 +31,53 @@ class AuthenticateWithAuthService
             return response()->json(['message' => 'Token manquant ou invalide. Veuillez vous reconnecter.'], 401);
         }
 
-        $authBaseUrl = rtrim((string) config('services.authentification.base_url', ''), '/');
-        // En conteneur, localhost pointe vers le conteneur Laravel lui-même; on force le service Docker "auth".
-        if ($authBaseUrl === '' || (file_exists('/.dockerenv') && str_contains($authBaseUrl, 'localhost'))) {
-            $authBaseUrl = 'http://auth:8080/api';
+        $configuredBaseUrl = rtrim((string) config('services.authentification.base_url', ''), '/');
+        $authBaseUrls = $this->buildAuthBaseUrls($configuredBaseUrl);
+        $lastConnectionError = null;
+        $response = null;
+        $resolvedBaseUrl = null;
+
+        foreach ($authBaseUrls as $authBaseUrl) {
+            try {
+                $candidateResponse = Http::timeout((int) config('services.authentification.timeout', 8))
+                    ->retry(2, 200, throw: false)
+                    ->acceptJson()
+                    ->withToken($token)
+                    ->get($authBaseUrl.'/auth/me');
+
+                $response = $candidateResponse;
+                $resolvedBaseUrl = $authBaseUrl;
+                break;
+            } catch (ConnectionException $e) {
+                $lastConnectionError = $e;
+                Log::warning('Auth remote unavailable', [
+                    'auth_base_url' => $authBaseUrl,
+                    'path' => $request->path(),
+                    'method' => $request->method(),
+                    'error' => $e->getMessage(),
+                ]);
+                error_log('Auth remote unavailable: '.$e->getMessage());
+            }
         }
 
-        try {
-            $response = Http::timeout((int) config('services.authentification.timeout', 8))
-                ->retry(2, 200, throw: false)
-                ->acceptJson()
-                ->withToken($token)
-                ->get($authBaseUrl.'/auth/me');
-        } catch (ConnectionException $e) {
-            Log::warning('Auth remote unavailable', [
-                'auth_base_url' => $authBaseUrl,
-                'path' => $request->path(),
-                'method' => $request->method(),
-                'error' => $e->getMessage(),
-            ]);
-            error_log('Auth remote unavailable: '.$e->getMessage());
-
+        if (! $response) {
             $payload = [
                 'message' => "Service d'authentification indisponible. Veuillez reessayer dans quelques instants.",
             ];
-            if (config('app.debug')) {
-                $payload['debug'] = $e->getMessage();
+            if (config('app.debug') && $lastConnectionError) {
+                $payload['debug'] = $lastConnectionError->getMessage();
             }
 
             return response()->json($payload, 503);
         }
 
         if (! $response->successful()) {
+            Log::info('Auth token rejected by auth service', [
+                'auth_base_url' => $resolvedBaseUrl,
+                'status' => $response->status(),
+                'path' => $request->path(),
+                'method' => $request->method(),
+            ]);
             return response()->json(['message' => 'Token invalide ou expiré. Veuillez vous reconnecter.'], 401);
         }
 
@@ -92,5 +107,33 @@ class AuthenticateWithAuthService
         }
 
         return null;
+    }
+
+    /**
+     * Construit une liste d'URL candidates pour joindre le service d'auth selon le contexte d'exécution
+     * (Docker inter-conteneurs vs exécution locale sur l'hôte).
+     *
+     * @return list<string>
+     */
+    private function buildAuthBaseUrls(string $configuredBaseUrl): array
+    {
+        $candidates = [];
+        if ($configuredBaseUrl !== '') {
+            $candidates[] = $configuredBaseUrl;
+        }
+
+        $isDockerRuntime = file_exists('/.dockerenv');
+        if ($isDockerRuntime) {
+            $candidates[] = 'http://auth:8080/api';
+            $candidates[] = 'http://host.docker.internal:8080/api';
+        } else {
+            $candidates[] = 'http://localhost:8080/api';
+            $candidates[] = 'http://auth:8080/api';
+        }
+
+        return array_values(array_unique(array_map(
+            fn (string $url): string => rtrim($url, '/'),
+            $candidates
+        )));
     }
 }
