@@ -5,6 +5,7 @@ import Footer from "../../components/Footer";
 import { formationsApi, formatFormationForDisplay } from "../../api/formations";
 import { inscriptionsApi } from "../../api/inscriptions";
 import { authApi } from "../../api/auth";
+import { getMessageErreurApi } from "../../api/utils";
 import FormationImage from "../../components/FormationImage";
 import "./css/formation-detail.css";
 
@@ -17,6 +18,7 @@ export default function FormationDetail() {
   const [chargement, setChargement] = useState(true);
   const [inscrit, setInscrit] = useState(false);
   const [enCoursInscription, setEnCoursInscription] = useState(false);
+  const [erreurInscription, setErreurInscription] = useState("");
 
   const user = authApi.getUtilisateur();
 
@@ -46,12 +48,14 @@ export default function FormationDetail() {
     }
     if (user.role !== "participant") return;
     setEnCoursInscription(true);
+    setErreurInscription("");
     try {
       await inscriptionsApi.inscrire(Number(id));
       setInscrit(true);
       navigate(`/apprendre/${id}`);
     } catch (e) {
       if (e.status === 422) setInscrit(true);
+      else setErreurInscription(getMessageErreurApi(e, "Inscription impossible pour le moment."));
     } finally {
       setEnCoursInscription(false);
     }
@@ -89,6 +93,7 @@ export default function FormationDetail() {
                 <span>{formation.inscriptions_count ?? 0} apprenant(s)</span>
               </div>
               <div className="detail-actions">
+                {erreurInscription && <div className="alert alert-danger mb-0">{erreurInscription}</div>}
                 {user?.role === "participant" && (
                   inscrit ? (
                     <Link to={`/apprendre/${id}`} className="btn btn-primary">

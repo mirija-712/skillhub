@@ -16,6 +16,8 @@ use Illuminate\Http\Request;
  */
 class InscriptionController extends Controller
 {
+    private const MAX_SIMULTANEOUS_ENROLLMENTS = 5;
+
     public function store(Request $request, int $formationId): JsonResponse
     {
         $userId = (int) $request->user()->id;
@@ -28,6 +30,13 @@ class InscriptionController extends Controller
         $exists = Inscription::where('utilisateur_id', $userId)->where('formation_id', $formationId)->exists();
         if ($exists) {
             return response()->json(['message' => 'Vous êtes déjà inscrit à cette formation.'], 422);
+        }
+
+        $currentEnrollmentsCount = Inscription::where('utilisateur_id', $userId)->count();
+        if ($currentEnrollmentsCount >= self::MAX_SIMULTANEOUS_ENROLLMENTS) {
+            return response()->json([
+                'message' => 'Vous avez atteint la limite de 5 formations suivies simultanément.',
+            ], 400);
         }
 
         Inscription::create([
