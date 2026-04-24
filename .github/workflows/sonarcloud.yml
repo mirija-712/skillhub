@@ -58,6 +58,8 @@ jobs:
           php artisan key:generate
           mkdir -p reports
           ./vendor/bin/phpunit --log-junit reports/junit.xml --coverage-clover reports/clover.xml
+          test -f reports/junit.xml
+          test -f reports/clover.xml
 
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
@@ -73,7 +75,13 @@ jobs:
           npm run lint
           npm run test:coverage
           npm run build
-          ls -la coverage
+          test -f coverage/lcov.info
+
+      - name: Verify coverage artifacts
+        run: |
+          ls -la authentification_back/target/site/jacoco || true
+          ls -la skillhub_back/reports
+          ls -la skillhub_front/coverage
 
       - name: SonarCloud scan
         uses: SonarSource/sonarqube-scan-action@v5
@@ -81,6 +89,10 @@ jobs:
           args: >
             -Dsonar.java.binaries=authentification_back/target/classes
             -Dsonar.java.libraries=authentification_back/target/dependency/*.jar
+            -Dsonar.coverage.jacoco.xmlReportPaths=authentification_back/target/site/jacoco/jacoco.xml
+            -Dsonar.php.tests.reportPath=skillhub_back/reports/junit.xml
+            -Dsonar.php.coverage.reportPaths=skillhub_back/reports/clover.xml
+            -Dsonar.javascript.lcov.reportPaths=skillhub_front/coverage/lcov.info
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
