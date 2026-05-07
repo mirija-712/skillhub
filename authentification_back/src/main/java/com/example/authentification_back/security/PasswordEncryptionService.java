@@ -37,6 +37,11 @@ public class PasswordEncryptionService {
 
 	private final SecretKey aesKey;
 
+	/**
+	 * Construit le service de chiffrement à partir de la clé maître d'environnement.
+	 *
+	 * @param appMasterKey valeur de {@code APP_MASTER_KEY}
+	 */
 	public PasswordEncryptionService(@Value("${APP_MASTER_KEY:}") String appMasterKey) {
 		// Spring injecte "" si la variable est absente : même comportement que « non définie ».
 		if (appMasterKey == null || appMasterKey.isBlank()) {
@@ -58,6 +63,8 @@ public class PasswordEncryptionService {
 
 	/**
 	 * Chiffre le mot de passe avant persistance JPA.
+	 *
+	 * @param plainPassword mot de passe en clair
 	 * @return chaîne au format {@code v1:Base64(iv):Base64(ciphertext)} (ciphertext inclut le tag GCM).
 	 */
 	public String encrypt(String plainPassword) {
@@ -78,6 +85,9 @@ public class PasswordEncryptionService {
 	/**
 	 * Déchiffre la valeur lue en base pour recalculer le HMAC au login (TP3).
 	 * Accepte le format {@code v1:...} ou l’ancien format « un seul Base64 » (migration).
+	 *
+	 * @param stored valeur chiffrée stockée en base
+	 * @return mot de passe en clair
 	 */
 	public String decrypt(String stored) {
 		if (stored == null || stored.isBlank()) {

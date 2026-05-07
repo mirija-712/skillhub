@@ -12,9 +12,14 @@ import org.springframework.stereotype.Component;
 @Component
 public class PasswordPolicyValidator {
 
+	/** Longueur minimale requise pour les mots de passe. */
 	public static final int MIN_LENGTH = 12;
 
-	/** Détail exposé au client en cas d'échec de politique (inscription). */
+	/**
+	 * Valide la conformité d'un mot de passe avec la politique de sécurité.
+	 *
+	 * @param password mot de passe en clair soumis par le client
+	 */
 	public void assertCompliant(String password) {
 		if (password == null || password.length() < MIN_LENGTH) {
 			throw new InvalidInputException(

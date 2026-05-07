@@ -13,6 +13,11 @@ import java.time.Clock;
 @EnableConfigurationProperties(AuthSecurityProperties.class)
 public class CryptoConfig {
 
+	/**
+	 * Fournit une horloge UTC injectée dans les services pour simplifier les tests temporels.
+	 *
+	 * @return horloge système UTC
+	 */
 	@Bean
 	public Clock clock() {
 		return Clock.systemUTC();

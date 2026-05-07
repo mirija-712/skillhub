@@ -9,6 +9,11 @@ package com.example.authentification_back.exception;
  */
 public class AccountLockedException extends RuntimeException {
 
+	/**
+	 * Crée une exception de verrouillage temporaire de compte.
+	 *
+	 * @param message message à retourner au client
+	 */
 	public AccountLockedException(String message) {
 		super(message);
 	}

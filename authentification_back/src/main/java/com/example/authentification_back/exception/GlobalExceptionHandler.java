@@ -18,27 +18,61 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+	/**
+	 * Gère les erreurs métier de saisie.
+	 *
+	 * @param ex exception métier
+	 * @param req requête HTTP en cours
+	 * @return réponse normalisée en HTTP 400
+	 */
 	@ExceptionHandler(InvalidInputException.class)
 	public ResponseEntity<ApiErrorResponse> handleInvalid(InvalidInputException ex, HttpServletRequest req) {
 		return build(HttpStatus.BAD_REQUEST, ex.getMessage(), req);
 	}
 
+	/**
+	 * Gère les comptes temporairement verrouillés.
+	 *
+	 * @param ex exception métier
+	 * @param req requête HTTP en cours
+	 * @return réponse normalisée en HTTP 423
+	 */
 	@ExceptionHandler(AccountLockedException.class)
 	public ResponseEntity<ApiErrorResponse> handleLocked(AccountLockedException ex, HttpServletRequest req) {
 		return build(HttpStatus.LOCKED, ex.getMessage(), req);
 	}
 
+	/**
+	 * Gère les échecs d'authentification.
+	 *
+	 * @param ex exception métier
+	 * @param req requête HTTP en cours
+	 * @return réponse normalisée en HTTP 401
+	 */
 	@ExceptionHandler(AuthenticationFailedException.class)
 	public ResponseEntity<ApiErrorResponse> handleAuth(AuthenticationFailedException ex, HttpServletRequest req) {
 		return build(HttpStatus.UNAUTHORIZED, ex.getMessage(), req);
 	}
 
+	/**
+	 * Gère les conflits métier (ex: email déjà utilisé).
+	 *
+	 * @param ex exception métier
+	 * @param req requête HTTP en cours
+	 * @return réponse normalisée en HTTP 409
+	 */
 	@ExceptionHandler(ResourceConflictException.class)
 	public ResponseEntity<ApiErrorResponse> handleConflict(ResourceConflictException ex, HttpServletRequest req) {
 		return build(HttpStatus.CONFLICT, ex.getMessage(), req);
 	}
 
-	/** Erreurs sur les DTO annotés {@code @Valid} (ex. email mal formé, mot de passe trop court). */
+	/**
+	 * Gère les erreurs de validation Bean Validation sur les DTO.
+	 *
+	 * @param ex exception de validation Spring
+	 * @param req requête HTTP en cours
+	 * @return réponse normalisée en HTTP 400
+	 */
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	public ResponseEntity<ApiErrorResponse> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest req) {
 		String message = ex.getBindingResult().getFieldErrors().stream()

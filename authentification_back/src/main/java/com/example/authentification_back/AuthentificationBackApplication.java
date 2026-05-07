@@ -13,6 +13,11 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class AuthentificationBackApplication {
 
+	/**
+	 * Lance l'application Spring Boot.
+	 *
+	 * @param args arguments de la ligne de commande
+	 */
 	public static void main(String[] args) {
 		SpringApplication.run(AuthentificationBackApplication.class, args);
 	}

@@ -36,31 +36,68 @@ public class AuthController {
 
 	private final AuthService authService;
 
+	/**
+	 * Construit le contrôleur d'authentification.
+	 *
+	 * @param authService service métier d'authentification
+	 */
 	public AuthController(AuthService authService) {
 		this.authService = authService;
 	}
 
+	/**
+	 * Crée un compte utilisateur (alias anglais).
+	 *
+	 * @param request données d'inscription
+	 * @return profil utilisateur créé (sans jeton)
+	 */
 	@PostMapping("/auth/register")
 	public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request) {
 		UserResponse body = authService.register(request);
 		return ResponseEntity.status(HttpStatus.CREATED).body(body);
 	}
 
+	/**
+	 * Crée un compte utilisateur (chemin principal côté front).
+	 *
+	 * @param request données d'inscription
+	 * @return profil utilisateur créé (sans jeton)
+	 */
 	@PostMapping("/auth/inscription")
 	public ResponseEntity<UserResponse> inscription(@Valid @RequestBody RegisterRequest request) {
 		return register(request);
 	}
 
+	/**
+	 * Authentifie un utilisateur et retourne un jeton de session (alias anglais).
+	 *
+	 * @param request identifiants de connexion
+	 * @return profil utilisateur avec jeton
+	 */
 	@PostMapping("/auth/login")
 	public ResponseEntity<UserResponse> login(@Valid @RequestBody LoginRequest request) {
 		return ResponseEntity.ok(authService.login(request));
 	}
 
+	/**
+	 * Authentifie un utilisateur et retourne un jeton de session (chemin principal côté front).
+	 *
+	 * @param request identifiants de connexion
+	 * @return profil utilisateur avec jeton
+	 */
 	@PostMapping("/auth/connexion")
 	public ResponseEntity<UserResponse> connexion(@Valid @RequestBody LoginRequest request) {
 		return login(request);
 	}
 
+	/**
+	 * Change le mot de passe de l'utilisateur authentifié.
+	 *
+	 * @param authorization en-tête HTTP Authorization éventuel
+	 * @param authToken en-tête HTTP X-Auth-Token éventuel
+	 * @param request ancien et nouveau mot de passe
+	 * @return message de confirmation
+	 */
 	@PutMapping("/auth/change-password")
 	public ResponseEntity<Map<String, String>> changePassword(
 			@RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
@@ -70,6 +107,13 @@ public class AuthController {
 		return ResponseEntity.ok(Map.of("message", "Mot de passe changé avec succès"));
 	}
 
+	/**
+	 * Retourne le profil de l'utilisateur courant (alias historique).
+	 *
+	 * @param authorization en-tête HTTP Authorization éventuel
+	 * @param authToken en-tête HTTP X-Auth-Token éventuel
+	 * @return profil utilisateur sans jeton
+	 */
 	@GetMapping("/me")
 	public ResponseEntity<UserResponse> me(
 			@RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
@@ -78,6 +122,13 @@ public class AuthController {
 		return ResponseEntity.ok(authService.currentUser(resolved));
 	}
 
+	/**
+	 * Retourne le profil de l'utilisateur courant (chemin principal pour les autres services).
+	 *
+	 * @param authorization en-tête HTTP Authorization éventuel
+	 * @param authToken en-tête HTTP X-Auth-Token éventuel
+	 * @return profil utilisateur sans jeton
+	 */
 	@GetMapping("/auth/me")
 	public ResponseEntity<UserResponse> authMe(
 			@RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,

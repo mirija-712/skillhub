@@ -35,6 +35,7 @@ import java.util.UUID;
 @Service
 public class AuthService {
 
+	/** Message volontairement générique pour éviter la divulgation d'information à la connexion. */
 	public static final String GENERIC_LOGIN_ERROR = "Identifiants invalides";
 
 	/** Message API pour changement de mot de passe : ancien mot de passe incorrect (tests + cohérence). */
@@ -48,6 +49,14 @@ public class AuthService {
 	private final Clock clock;
 	private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
+	/**
+	 * Construit le service d'authentification.
+	 *
+	 * @param userRepository accès aux utilisateurs
+	 * @param authProperties paramètres de sécurité (lockout, etc.)
+	 * @param passwordPolicyValidator validateur de robustesse des mots de passe
+	 * @param clock horloge injectée (utile pour les tests)
+	 */
 	public AuthService(
 			UserRepository userRepository,
 			AuthSecurityProperties authProperties,
@@ -59,6 +68,12 @@ public class AuthService {
 		this.clock = clock;
 	}
 
+	/**
+	 * Inscrit un nouvel utilisateur et persiste son mot de passe chiffré BCrypt.
+	 *
+	 * @param request données d'inscription
+	 * @return profil du nouvel utilisateur
+	 */
 	@Transactional
 	public UserResponse register(RegisterRequest request) {
 		String email = normalizeEmail(request.email());
@@ -88,6 +103,12 @@ public class AuthService {
 		return UserResponse.profile(user);
 	}
 
+	/**
+	 * Authentifie un utilisateur et crée une nouvelle session.
+	 *
+	 * @param request identifiants de connexion
+	 * @return profil utilisateur avec jeton de session
+	 */
 	@Transactional(noRollbackFor = AuthenticationFailedException.class)
 	public UserResponse login(LoginRequest request) {
 		String email = normalizeEmail(request.email());
@@ -149,6 +170,12 @@ public class AuthService {
 		throw new AuthenticationFailedException(GENERIC_LOGIN_ERROR);
 	}
 
+	/**
+	 * Retourne le profil de l'utilisateur correspondant au jeton fourni.
+	 *
+	 * @param rawToken jeton brut (Authorization ou X-Auth-Token)
+	 * @return profil utilisateur sans jeton
+	 */
 	@Transactional(readOnly = true)
 	public UserResponse currentUser(String rawToken) {
 		if (rawToken == null || rawToken.isBlank()) {
@@ -160,6 +187,12 @@ public class AuthService {
 				.orElseThrow(() -> new AuthenticationFailedException("Token invalide"));
 	}
 
+	/**
+	 * Met à jour le mot de passe de l'utilisateur authentifié.
+	 *
+	 * @param rawToken jeton de session brut
+	 * @param request ancien mot de passe, nouveau mot de passe et confirmation
+	 */
 	@Transactional
 	public void changePassword(String rawToken, ChangePasswordRequest request) {
 		User user = requireUserByToken(rawToken);

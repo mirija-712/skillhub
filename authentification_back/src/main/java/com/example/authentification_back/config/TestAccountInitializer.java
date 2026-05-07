@@ -17,14 +17,21 @@ public class TestAccountInitializer implements CommandLineRunner {
 
 	private static final Logger log = LoggerFactory.getLogger(TestAccountInitializer.class);
 
+	/** Email du compte de démonstration créé automatiquement au démarrage. */
 	public static final String TEST_EMAIL = "toto@example.com";
 	private static final String TEST_ACCOUNT_SECRET_ENV = "TEST_ACCOUNT_SECRET";
 	private static final String FALLBACK_SECRET_ENV = "APP_MASTER_KEY";
+	/** Secret utilisé pour le compte de démonstration (chargé via variable d'environnement). */
 	public static final String TEST_ACCOUNT_SECRET = resolveTestSecret();
 
 	private final UserRepository userRepository;
 	private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
+	/**
+	 * Construit l'initialiseur de compte de démonstration.
+	 *
+	 * @param userRepository repository utilisateur
+	 */
 	public TestAccountInitializer(UserRepository userRepository) {
 		this.userRepository = userRepository;
 	}

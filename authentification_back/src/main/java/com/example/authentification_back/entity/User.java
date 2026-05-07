@@ -67,90 +67,112 @@ public class User {
 		updatedAt = Instant.now();
 	}
 
+	/** @return identifiant technique de l'utilisateur */
 	public Long getId() {
 		return id;
 	}
 
+	/** @param id identifiant technique de l'utilisateur */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/** @return email unique de connexion */
 	public String getEmail() {
 		return email;
 	}
 
+	/** @param email email unique de connexion */
 	public void setEmail(String email) {
 		this.email = email;
 	}
 
+	/** @return mot de passe haché (BCrypt) */
 	public String getMotDePasse() {
 		return motDePasse;
 	}
 
+	/** @param motDePasse mot de passe haché (BCrypt) */
 	public void setMotDePasse(String motDePasse) {
 		this.motDePasse = motDePasse;
 	}
 
+	/** @return nom de famille */
 	public String getNom() {
 		return nom;
 	}
 
+	/** @param nom nom de famille */
 	public void setNom(String nom) {
 		this.nom = nom;
 	}
 
+	/** @return prénom */
 	public String getPrenom() {
 		return prenom;
 	}
 
+	/** @param prenom prénom */
 	public void setPrenom(String prenom) {
 		this.prenom = prenom;
 	}
 
+	/** @return rôle applicatif (participant ou formateur) */
 	public String getRole() {
 		return role;
 	}
 
+	/** @param role rôle applicatif (participant ou formateur) */
 	public void setRole(String role) {
 		this.role = role;
 	}
 
+	/** @return date de création */
 	public Instant getCreatedAt() {
 		return createdAt;
 	}
 
+	/** @param createdAt date de création */
 	public void setCreatedAt(Instant createdAt) {
 		this.createdAt = createdAt;
 	}
 
+	/** @return date de dernière mise à jour */
 	public Instant getUpdatedAt() {
 		return updatedAt;
 	}
 
+	/** @param updatedAt date de dernière mise à jour */
 	public void setUpdatedAt(Instant updatedAt) {
 		this.updatedAt = updatedAt;
 	}
 
+	/** @return jeton de session courant */
 	public String getToken() {
 		return token;
 	}
 
+	/** @param token jeton de session courant */
 	public void setToken(String token) {
 		this.token = token;
 	}
 
+	/** @return nombre d'échecs de connexion consécutifs */
 	public int getFailedLoginAttempts() {
 		return failedLoginAttempts;
 	}
 
+	/** @param failedLoginAttempts nombre d'échecs de connexion consécutifs */
 	public void setFailedLoginAttempts(int failedLoginAttempts) {
 		this.failedLoginAttempts = failedLoginAttempts;
 	}
 
+	/** @return instant jusqu'auquel le compte est verrouillé */
 	public Instant getLockUntil() {
 		return lockUntil;
 	}
 
+	/** @param lockUntil instant jusqu'auquel le compte est verrouillé */
 	public void setLockUntil(Instant lockUntil) {
 		this.lockUntil = lockUntil;
 	}

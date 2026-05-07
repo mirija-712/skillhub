@@ -11,7 +11,12 @@ import java.time.Instant;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record UserResponse(Long id, String email, String nom, String prenom, String role, Instant createdAt, String token) {
 
-	/** Profil sans exposer le jeton (inscription, {@code GET /api/me}). */
+	/**
+	 * Construit une réponse profil (sans jeton).
+	 *
+	 * @param user entité utilisateur source
+	 * @return réponse profil sérialisable en JSON
+	 */
 	public static UserResponse profile(User user) {
 		return new UserResponse(
 				user.getId(),
@@ -24,7 +29,13 @@ public record UserResponse(Long id, String email, String nom, String prenom, Str
 		);
 	}
 
-	/** Réponse de connexion : inclut le jeton à transmettre dans les en-têtes des requêtes suivantes. */
+	/**
+	 * Construit une réponse de connexion avec jeton.
+	 *
+	 * @param user entité utilisateur source
+	 * @param token jeton de session à renvoyer au client
+	 * @return réponse de connexion sérialisable en JSON
+	 */
 	public static UserResponse login(User user, String token) {
 		return new UserResponse(
 				user.getId(),

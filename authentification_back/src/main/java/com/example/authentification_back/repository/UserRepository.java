@@ -10,10 +10,27 @@ import java.util.Optional;
  */
 public interface UserRepository extends JpaRepository<User, Long> {
 
+	/**
+	 * Recherche un utilisateur par email.
+	 *
+	 * @param email email normalisé
+	 * @return utilisateur trouvé, sinon vide
+	 */
 	Optional<User> findByEmail(String email);
 
-	/** Utilisé pour authentifier les appels {@code GET /api/me} via le jeton persistant. */
+	/**
+	 * Recherche un utilisateur par jeton de session.
+	 *
+	 * @param token jeton persistant
+	 * @return utilisateur trouvé, sinon vide
+	 */
 	Optional<User> findByToken(String token);
 
+	/**
+	 * Vérifie si un email est déjà pris.
+	 *
+	 * @param email email normalisé
+	 * @return true si un utilisateur existe déjà avec cet email
+	 */
 	boolean existsByEmail(String email);
 }
