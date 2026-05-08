@@ -242,6 +242,43 @@ class AuthApiIntegrationTest {
 	}
 
 	@Test
+	void me_ok_with_x_auth_token_header() throws Exception {
+		String token = loginAndExtractToken(
+				TestAccountInitializer.TEST_EMAIL,
+				TestAccountInitializer.TEST_ACCOUNT_SECRET);
+
+		mockMvc.perform(get("/api/auth/me")
+						.header("X-Auth-Token", token))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.email").value(TestAccountInitializer.TEST_EMAIL));
+	}
+
+	@Test
+	void me_ok_with_plain_authorization_header_without_bearer_prefix() throws Exception {
+		String token = loginAndExtractToken(
+				TestAccountInitializer.TEST_EMAIL,
+				TestAccountInitializer.TEST_ACCOUNT_SECRET);
+
+		mockMvc.perform(get("/api/auth/me")
+						.header(HttpHeaders.AUTHORIZATION, token))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.email").value(TestAccountInitializer.TEST_EMAIL));
+	}
+
+	@Test
+	void me_prefers_bearer_token_over_x_auth_token_when_both_are_present() throws Exception {
+		String validToken = loginAndExtractToken(
+				TestAccountInitializer.TEST_EMAIL,
+				TestAccountInitializer.TEST_ACCOUNT_SECRET);
+
+		mockMvc.perform(get("/api/auth/me")
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + validToken)
+						.header("X-Auth-Token", "invalid-token"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.email").value(TestAccountInitializer.TEST_EMAIL));
+	}
+
+	@Test
 	void account_locks_after_five_failures_then_unlocks_after_delay() throws Exception {
 		String email = "lockout@example.com";
 		String strong = "Bb2!bbbbbbbb";
