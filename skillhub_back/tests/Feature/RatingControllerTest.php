@@ -143,4 +143,43 @@ class RatingControllerTest extends TestCase
 
         $response->assertStatus(401);
     }
+
+    public function test_rating_unknown_formation_returns_404(): void
+    {
+        $apprenant = Utilisateur::factory()->participant()->create();
+
+        $response = $this->withRemoteAuthAs($apprenant->id, 'participant', $apprenant->email)
+            ->postJson('/api/formations/999999/noter', [
+                'note' => 4,
+                'commentaire' => 'Avis',
+            ]);
+
+        $response->assertStatus(404)
+            ->assertJsonPath('message', 'Formation introuvable');
+    }
+
+    public function test_rating_with_missing_commentaire_returns_400_and_errors(): void
+    {
+        $categorie = CategorieFormation::factory()->create();
+        $formateur = Utilisateur::factory()->formateur()->create();
+        $apprenant = Utilisateur::factory()->participant()->create();
+        $formation = Formation::factory()->create([
+            'id_formateur' => $formateur->id,
+            'id_categorie' => $categorie->id,
+        ]);
+        Inscription::create([
+            'utilisateur_id' => $apprenant->id,
+            'formation_id' => $formation->id,
+            'progression' => 0,
+        ]);
+
+        $response = $this->withRemoteAuthAs($apprenant->id, 'participant', $apprenant->email)
+            ->postJson("/api/formations/{$formation->id}/noter", [
+                'note' => 4,
+            ]);
+
+        $response->assertStatus(400)
+            ->assertJsonPath('message', 'Note invalide.')
+            ->assertJsonStructure(['erreurs' => ['commentaire']]);
+    }
 }

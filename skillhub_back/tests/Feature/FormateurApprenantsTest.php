@@ -95,4 +95,26 @@ class FormateurApprenantsTest extends TestCase
 
         $response->assertStatus(401);
     }
+
+    public function test_formateur_get_apprenants_for_unknown_formation_returns_404(): void
+    {
+        $formateur = Utilisateur::factory()->formateur()->create();
+
+        $response = $this->withRemoteAuthAs($formateur->id, 'formateur', $formateur->email)
+            ->getJson('/api/formateur/999999/apprenants');
+
+        $response->assertStatus(404)
+            ->assertJsonPath('message', 'Formation introuvable');
+    }
+
+    public function test_participant_cannot_access_formateur_apprenants_route_returns_403(): void
+    {
+        $formation = Formation::factory()->create();
+        $participant = Utilisateur::factory()->participant()->create();
+
+        $response = $this->withRemoteAuthAs($participant->id, 'participant', $participant->email)
+            ->getJson("/api/formateur/{$formation->id}/apprenants");
+
+        $response->assertStatus(403);
+    }
 }
