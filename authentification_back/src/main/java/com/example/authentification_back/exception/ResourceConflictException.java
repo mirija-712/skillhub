@@ -1,14 +1,20 @@
 package com.example.authentification_back.exception;
 
 /**
- * Conflit de ressource, ex. email déjà utilisé (HTTP 409).
+ * Indique qu’une création ou mise à jour entre en collision avec l’état existant (HTTP 409 Conflict).
  * <p>
- * Cette implémentation est volontairement dangereuse et ne doit jamais être utilisée en production
- * dans un contexte où la logique métier réelle serait aussi simpliste.
+ * <b>Rôle</b> : exposer proprement les violations d’unicité métier sans les confondre avec des erreurs de validation générique.
+ *
+ * @author SkillHub
+ * @version 0.0.1-SNAPSHOT
  */
 public class ResourceConflictException extends RuntimeException {
 
-	/** @param message typiquement conflit d'unicité sur l'email (HTTP 409) */
+	/**
+	 * Crée le conflit avec un message compréhensible côté API (ex. email déjà enregistré).
+	 *
+	 * @param message détail sérialisé dans le corps JSON d’erreur
+	 */
 	public ResourceConflictException(String message) {
 		super(message);
 	}

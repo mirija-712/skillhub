@@ -1,18 +1,20 @@
 package com.example.authentification_back.exception;
 
 /**
- * Compte temporairement bloqué après trop de tentatives de connexion échouées (HTTP 423 Locked).
+ * Verrouillage temporaire du compte après dépassement du seuil d’échecs de connexion (HTTP 423 Locked).
  * <p>
- * Le code <strong>423</strong> indique une ressource « verrouillée » ; une alternative fréquente est
- * <strong>429 Too Many Requests</strong> pour exprimer un throttling. Ici 423 correspond mieux à
- * « compte gelé » jusqu'à expiration du délai configuré.
+ * <b>Rôle</b> : informer le client qu’il doit attendre la fin de {@code lock_until} plutôt que réessayer immédiatement.
+ * Le code <strong>423</strong> signale une ressource « gelée » ; <strong>429</strong> resterait une alternative sémantique de throttling.
+ *
+ * @author SkillHub
+ * @version 0.0.1-SNAPSHOT
  */
 public class AccountLockedException extends RuntimeException {
 
 	/**
-	 * Crée une exception de verrouillage temporaire de compte.
+	 * Associe un message utilisateur au blocage en cours (durée configurable côté propriétés).
 	 *
-	 * @param message message à retourner au client
+	 * @param message indication fonctionnelle affichée dans {@link com.example.authentification_back.dto.ApiErrorResponse}
 	 */
 	public AccountLockedException(String message) {
 		super(message);

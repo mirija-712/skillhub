@@ -10,7 +10,13 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
 
 /**
- * Compte de démonstration (même email / mot de passe que les exemples du cours).
+ * Initialise au démarrage un compte de démonstration pour faciliter les TP et démos locales.
+ * <p>
+ * <b>Rôle</b> : si {@link #TEST_EMAIL} est absent de la base et qu’un secret d’environnement est disponible,
+ * insérer un utilisateur avec mot de passe BCrypt dérivé de ce secret ; sinon journaliser et ignorer silencieusement.
+ *
+ * @author SkillHub
+ * @version 0.0.1-SNAPSHOT
  */
 @Component
 public class TestAccountInitializer implements CommandLineRunner {
@@ -28,14 +34,20 @@ public class TestAccountInitializer implements CommandLineRunner {
 	private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
 	/**
-	 * Construit l'initialiseur de compte de démonstration.
+	 * Injecte le dépôt nécessaire pour tester l’existence du compte démo et le créer au besoin.
 	 *
-	 * @param userRepository repository utilisateur
+	 * @param userRepository accès Spring Data à la table {@code utilisateurs}
 	 */
 	public TestAccountInitializer(UserRepository userRepository) {
 		this.userRepository = userRepository;
 	}
 
+	/**
+	 * Hook Spring Boot exécuté après levée du contexte : tente la création du compte démo une seule fois.
+	 *
+	 * @param args arguments CLI Spring Boot (non utilisés ici ; réservés aux extensions futures)
+	 * @return aucune valeur ; journalise les skips ou erreurs de migration sans faire échouer le démarrage
+	 */
 	@Override
 	public void run(String... args) {
 		try {

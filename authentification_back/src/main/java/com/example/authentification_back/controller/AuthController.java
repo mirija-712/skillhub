@@ -17,6 +17,11 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.authentification_back.exception.AccountLockedException;
+import com.example.authentification_back.exception.AuthenticationFailedException;
+import com.example.authentification_back.exception.InvalidInputException;
+import com.example.authentification_back.exception.ResourceConflictException;
+
 import java.util.Map;
 
 /**
@@ -29,6 +34,9 @@ import java.util.Map;
  * l'envoient en {@code Authorization: Bearer …} ou {@code X-Auth-Token}. Laravel valide ce jeton via {@code GET /auth/me}.
  * <p><b>Erreurs</b> : format {@link com.example.authentification_back.dto.ApiErrorResponse} géré par
  * {@link com.example.authentification_back.exception.GlobalExceptionHandler}.
+ *
+ * @author SkillHub
+ * @version 0.0.1-SNAPSHOT
  */
 @RestController
 @RequestMapping("/api")
@@ -37,19 +45,21 @@ public class AuthController {
 	private final AuthService authService;
 
 	/**
-	 * Construit le contrôleur d'authentification.
+	 * Construit le contrôleur avec le service métier d'authentification injecté par Spring.
 	 *
-	 * @param authService service métier d'authentification
+	 * @param authService orchestration inscription, connexion, session et changement de mot de passe
 	 */
 	public AuthController(AuthService authService) {
 		this.authService = authService;
 	}
 
 	/**
-	 * Crée un compte utilisateur (alias anglais).
+	 * Crée un compte utilisateur (alias anglais {@code /auth/register}) : validation du corps JSON puis persistance.
 	 *
-	 * @param request données d'inscription
-	 * @return profil utilisateur créé (sans jeton)
+	 * @param request données d'inscription validées (email, mots de passe, nom, prénom, rôle)
+	 * @return corps HTTP 201 avec le profil créé ; le champ jeton est absent à l'inscription
+	 * @throws InvalidInputException propagée si politique de mot de passe, confirmation ou rôle métier invalide (HTTP 400)
+	 * @throws ResourceConflictException propagée si l'email existe déjà (HTTP 409)
 	 */
 	@PostMapping("/auth/register")
 	public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request) {
@@ -58,10 +68,12 @@ public class AuthController {
 	}
 
 	/**
-	 * Crée un compte utilisateur (chemin principal côté front).
+	 * Crée un compte utilisateur (chemin principal français) ; délègue à {@link #register(RegisterRequest)}.
 	 *
-	 * @param request données d'inscription
-	 * @return profil utilisateur créé (sans jeton)
+	 * @param request données d'inscription validées (email, mots de passe, nom, prénom, rôle)
+	 * @return corps HTTP 201 avec le profil créé ; pas de jeton dans la réponse
+	 * @throws InvalidInputException voir {@link #register(RegisterRequest)}
+	 * @throws ResourceConflictException voir {@link #register(RegisterRequest)}
 	 */
 	@PostMapping("/auth/inscription")
 	public ResponseEntity<UserResponse> inscription(@Valid @RequestBody RegisterRequest request) {
@@ -69,10 +81,12 @@ public class AuthController {
 	}
 
 	/**
-	 * Authentifie un utilisateur et retourne un jeton de session (alias anglais).
+	 * Authentifie un utilisateur et retourne un jeton de session opaque (alias {@code /auth/login}).
 	 *
-	 * @param request identifiants de connexion
-	 * @return profil utilisateur avec jeton
+	 * @param request identifiants (email et mot de passe) soumis par le client
+	 * @return corps HTTP 200 avec profil et champ {@code token} renseigné pour les appels suivants
+	 * @throws AuthenticationFailedException si email inconnu ou mot de passe incorrect (HTTP 401)
+	 * @throws AccountLockedException si le compte est temporairement verrouillé après trop d'échecs (HTTP 423)
 	 */
 	@PostMapping("/auth/login")
 	public ResponseEntity<UserResponse> login(@Valid @RequestBody LoginRequest request) {
@@ -80,10 +94,12 @@ public class AuthController {
 	}
 
 	/**
-	 * Authentifie un utilisateur et retourne un jeton de session (chemin principal côté front).
+	 * Authentifie un utilisateur (chemin français) ; équivalent fonctionnel à {@link #login(LoginRequest)}.
 	 *
-	 * @param request identifiants de connexion
-	 * @return profil utilisateur avec jeton
+	 * @param request identifiants de connexion validés
+	 * @return profil utilisateur avec jeton de session
+	 * @throws AuthenticationFailedException voir {@link #login(LoginRequest)}
+	 * @throws AccountLockedException voir {@link #login(LoginRequest)}
 	 */
 	@PostMapping("/auth/connexion")
 	public ResponseEntity<UserResponse> connexion(@Valid @RequestBody LoginRequest request) {
@@ -91,12 +107,14 @@ public class AuthController {
 	}
 
 	/**
-	 * Change le mot de passe de l'utilisateur authentifié.
+	 * Change le mot de passe de l'utilisateur identifié par le jeton résolu depuis les en-têtes.
 	 *
-	 * @param authorization en-tête HTTP Authorization éventuel
-	 * @param authToken en-tête HTTP X-Auth-Token éventuel
-	 * @param request ancien et nouveau mot de passe
-	 * @return message de confirmation
+	 * @param authorization valeur brute de {@code Authorization} ; utilisée si préfixe {@code Bearer } présent pour extraire le jeton
+	 * @param authToken valeur de {@code X-Auth-Token} ; prise en compte si aucun jeton Bearer exploitable
+	 * @param request ancien mot de passe, nouveau et confirmation ; soumis au validateur de politique
+	 * @return corps HTTP 200 avec message fonctionnel de succès
+	 * @throws AuthenticationFailedException si aucun jeton ou jeton inconnu (HTTP 401)
+	 * @throws InvalidInputException si ancien mot de passe faux ou nouveaux mots de passe invalides (HTTP 400)
 	 */
 	@PutMapping("/auth/change-password")
 	public ResponseEntity<Map<String, String>> changePassword(
@@ -108,11 +126,12 @@ public class AuthController {
 	}
 
 	/**
-	 * Retourne le profil de l'utilisateur courant (alias historique).
+	 * Retourne le profil de l'utilisateur associé au jeton (chemin court historique {@code /me}).
 	 *
-	 * @param authorization en-tête HTTP Authorization éventuel
-	 * @param authToken en-tête HTTP X-Auth-Token éventuel
-	 * @return profil utilisateur sans jeton
+	 * @param authorization en-tête {@code Authorization} ; support du schéma Bearer pour le jeton
+	 * @param authToken en-tête alternatif {@code X-Auth-Token} si pas de Bearer
+	 * @return corps HTTP 200 avec profil sans champ jeton
+	 * @throws AuthenticationFailedException si jeton absent, vide ou inconnu (HTTP 401)
 	 */
 	@GetMapping("/me")
 	public ResponseEntity<UserResponse> me(
@@ -123,11 +142,12 @@ public class AuthController {
 	}
 
 	/**
-	 * Retourne le profil de l'utilisateur courant (chemin principal pour les autres services).
+	 * Retourne le profil utilisateur pour validation inter-services (chemin {@code /auth/me}, aligné Laravel).
 	 *
-	 * @param authorization en-tête HTTP Authorization éventuel
-	 * @param authToken en-tête HTTP X-Auth-Token éventuel
-	 * @return profil utilisateur sans jeton
+	 * @param authorization en-tête {@code Authorization} (Bearer) ou vide si usage de {@code X-Auth-Token}
+	 * @param authToken jeton brut lorsque le client ne passe pas par Bearer
+	 * @return profil sérialisé sans exposer le jeton dans le corps
+	 * @throws AuthenticationFailedException voir {@link #me(String, String)}
 	 */
 	@GetMapping("/auth/me")
 	public ResponseEntity<UserResponse> authMe(

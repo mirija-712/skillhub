@@ -12,10 +12,13 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 
 /**
- * Entité JPA mappée sur la table MySQL {@code utilisateurs} (partagée avec Laravel).
- * Colonnes métier : email, mot_de_passe (hash BCrypt), nom, prenom, role.
- * Colonnes de session / sécurité : token (jeton opaque), compteurs de verrouillage (échecs connexion, lock_until).
- * Les dates created_at / updated_at sont remplies par les callbacks {@code @PrePersist} / {@code @PreUpdate}.
+ * Entité JPA représentant un utilisateur applicatif persisté dans {@code utilisateurs} (schéma partagé Laravel).
+ * <p>
+ * <b>Rôle</b> : porter l’état métier (identité, rôle), le secret chiffré (BCrypt), le jeton de session et les champs
+ * de sécurité ({@code failed_login_attempts}, {@code lock_until}) ; les dates sont auto-renseignées avant écriture.
+ *
+ * @author SkillHub
+ * @version 0.0.1-SNAPSHOT
  */
 @Entity
 @Table(name = "utilisateurs")
@@ -67,112 +70,200 @@ public class User {
 		updatedAt = Instant.now();
 	}
 
-	/** @return identifiant technique de l'utilisateur */
+	/**
+	 * Identifiant surrogate auto-incrémenté par MySQL.
+	 *
+	 * @return valeur de la colonne {@code id}
+	 */
 	public Long getId() {
 		return id;
 	}
 
-	/** @param id identifiant technique de l'utilisateur */
+	/**
+	 * Fixe l’identifiant (réservé à JPA, séquences de tests ou imports).
+	 *
+	 * @param id nouvelle clé primaire
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
-	/** @return email unique de connexion */
+	/**
+	 * Email canonique de connexion (contrainte unique).
+	 *
+	 * @return chaîne persistée telle qu’en base après normalisation métier éventuelle
+	 */
 	public String getEmail() {
 		return email;
 	}
 
-	/** @param email email unique de connexion */
+	/**
+	 * Met à jour l’email lors de la création ou d’un futur flux de changement d’email.
+	 *
+	 * @param email valeur unique attendue par les index SQL
+	 */
 	public void setEmail(String email) {
 		this.email = email;
 	}
 
-	/** @return mot de passe haché (BCrypt) */
+	/**
+	 * Secret d’authentification stocké sous forme de hash BCrypt (jamais en clair).
+	 *
+	 * @return empreinte BCrypt compatible {@link org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder}
+	 */
 	public String getMotDePasse() {
 		return motDePasse;
 	}
 
-	/** @param motDePasse mot de passe haché (BCrypt) */
+	/**
+	 * Remplace le hash (inscription, changement de mot de passe ou migrations).
+	 *
+	 * @param motDePasse nouveau hash déjà encodé ; ne pas passer le mot de passe brut ici
+	 */
 	public void setMotDePasse(String motDePasse) {
 		this.motDePasse = motDePasse;
 	}
 
-	/** @return nom de famille */
+	/**
+	 * Nom de famille obligatoire dans les formulaires SkillHub.
+	 *
+	 * @return valeur colonne {@code nom}
+	 */
 	public String getNom() {
 		return nom;
 	}
 
-	/** @param nom nom de famille */
+	/**
+	 * Met à jour le nom affiché sur les écrans et rapports.
+	 *
+	 * @param nom chaîne non {@code null} côté contrainte nullable=false
+	 */
 	public void setNom(String nom) {
 		this.nom = nom;
 	}
 
-	/** @return prénom */
+	/**
+	 * Prénom optionnel pour personnaliser l’accueil utilisateur.
+	 *
+	 * @return prénom ou {@code null} si absent en base
+	 */
 	public String getPrenom() {
 		return prenom;
 	}
 
-	/** @param prenom prénom */
+	/**
+	 * Définit ou efface le prénom selon les données fournies au formulaire.
+	 *
+	 * @param prenom valeur pouvant être {@code null} si non renseignée
+	 */
 	public void setPrenom(String prenom) {
 		this.prenom = prenom;
 	}
 
-	/** @return rôle applicatif (participant ou formateur) */
+	/**
+	 * Rôle fonctionnel limité aux valeurs métier {@code participant} et {@code formateur}.
+	 *
+	 * @return étiquette persistée dans {@code role}
+	 */
 	public String getRole() {
 		return role;
 	}
 
-	/** @param role rôle applicatif (participant ou formateur) */
+	/**
+	 * Positionne le périmètre de droits UI / API associé au compte.
+	 *
+	 * @param role valeur contrôlée côté service avant persistance
+	 */
 	public void setRole(String role) {
 		this.role = role;
 	}
 
-	/** @return date de création */
+	/**
+	 * Instant de première insertion, renseigné par {@code @PrePersist} si absent.
+	 *
+	 * @return {@code created_at} tel que stocké en base
+	 */
 	public Instant getCreatedAt() {
 		return createdAt;
 	}
 
-	/** @param createdAt date de création */
+	/**
+	 * Permet d’outrepasser la date de création pour imports ou tests (usage rare).
+	 *
+	 * @param createdAt nouvelle valeur logique de création
+	 */
 	public void setCreatedAt(Instant createdAt) {
 		this.createdAt = createdAt;
 	}
 
-	/** @return date de dernière mise à jour */
+	/**
+	 * Horodatage de dernière modification, rafraîchi à chaque {@code @PreUpdate}.
+	 *
+	 * @return colonne {@code updated_at}
+	 */
 	public Instant getUpdatedAt() {
 		return updatedAt;
 	}
 
-	/** @param updatedAt date de dernière mise à jour */
+	/**
+	 * Met à jour manuellement la date de modification (normalement gérée par les callbacks).
+	 *
+	 * @param updatedAt instant à persister
+	 */
 	public void setUpdatedAt(Instant updatedAt) {
 		this.updatedAt = updatedAt;
 	}
 
-	/** @return jeton de session courant */
+	/**
+	 * Jeton opaque de session actif ; {@code null} si aucune session ouverte.
+	 *
+	 * @return UUID ou chaîne égale à celle renvoyée au client lors du dernier login réussi
+	 */
 	public String getToken() {
 		return token;
 	}
 
-	/** @param token jeton de session courant */
+	/**
+	 * Pose ou invalide le jeton (nouvelle connexion, déconnexion future, rotation).
+	 *
+	 * @param token valeur unique côté contrainte d’unicité SQL ou {@code null}
+	 */
 	public void setToken(String token) {
 		this.token = token;
 	}
 
-	/** @return nombre d'échecs de connexion consécutifs */
+	/**
+	 * Compteur d’échecs consécutifs de mot de passe utilisé pour déclencher le lockout.
+	 *
+	 * @return entier remis à zéro après login réussi ou après expiration du lock
+	 */
 	public int getFailedLoginAttempts() {
 		return failedLoginAttempts;
 	}
 
-	/** @param failedLoginAttempts nombre d'échecs de connexion consécutifs */
+	/**
+	 * Ajuste le compteur lors du traitement d’une tentative de connexion invalide ou d’une réinitialisation.
+	 *
+	 * @param failedLoginAttempts nombre d’échecs à persister
+	 */
 	public void setFailedLoginAttempts(int failedLoginAttempts) {
 		this.failedLoginAttempts = failedLoginAttempts;
 	}
 
-	/** @return instant jusqu'auquel le compte est verrouillé */
+	/**
+	 * Borne temporelle au-delà de laquelle le compte redevient joignable si {@code null} ou passée.
+	 *
+	 * @return instant futur de fin de blocage, ou {@code null} si pas de lock actif
+	 */
 	public Instant getLockUntil() {
 		return lockUntil;
 	}
 
-	/** @param lockUntil instant jusqu'auquel le compte est verrouillé */
+	/**
+	 * Programme ou annule le gel du compte (via {@code null}) après calcul métier.
+	 *
+	 * @param lockUntil instant limite ; {@code null} supprime le verrouillage
+	 */
 	public void setLockUntil(Instant lockUntil) {
 		this.lockUntil = lockUntil;
 	}

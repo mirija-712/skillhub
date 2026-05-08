@@ -7,7 +7,13 @@ import java.security.MessageDigest;
 import java.util.HexFormat;
 
 /**
- * Utilitaires de signature HMAC utilisés par le flux SSO.
+ * Utilitaires statiques de signature HMAC pour un flux type SSO (canonisation du message, signature hex, comparaison constante).
+ * <p>
+ * <b>Rôle</b> : centraliser la construction du message signé et le calcul HMAC-SHA256 sans dépendance Spring,
+ * afin de limiter les erreurs de concaténation et les comparaisons vulnérables aux timings attacks.
+ *
+ * @author SkillHub
+ * @version 0.0.1-SNAPSHOT
  */
 public final class SsoHmac {
 
@@ -17,23 +23,24 @@ public final class SsoHmac {
 	}
 
 	/**
-	 * Construit la charge utile canonique à signer.
+	 * Assemble la chaîne canonique {@code email:nonce:timestamp} à passer au MAC (ordre et séparateurs fixes).
 	 *
-	 * @param normalizedEmail email normalisé (trim + lower-case)
-	 * @param nonce nonce anti-rejeu
-	 * @param timestampEpochSeconds horodatage epoch secondes
-	 * @return message canonique au format email:nonce:timestamp
+	 * @param normalizedEmail adresse déjà normalisée (ex. minuscules) pour éviter les ambiguïtés de signature
+	 * @param nonce valeur unique côté protocole pour limiter la réutilisation de requêtes interceptées
+	 * @param timestampEpochSeconds instant de la demande en secondes depuis epoch UTC (tolérance gérée ailleurs)
+	 * @return texte UTF-8 à signer tel quel par {@link #hmacSha256Hex(String, String)}
 	 */
 	public static String messageToSign(String normalizedEmail, String nonce, long timestampEpochSeconds) {
 		return normalizedEmail + ":" + nonce + ":" + timestampEpochSeconds;
 	}
 
 	/**
-	 * Calcule une signature HMAC-SHA256 encodée en hexadécimal.
+	 * Calcule le tag HMAC-SHA256 du message avec la clé dérivée du secret utilisateur (mot de passe ou secret applicatif).
 	 *
-	 * @param password secret partagé utilisé comme clé HMAC
-	 * @param message message canonique à signer
-	 * @return signature hexadécimale
+	 * @param password matière secrète servant de clé symétrique pour {@link Mac#getInstance(String)}
+	 * @param message chaîne produite par {@link #messageToSign(String, String, long)} ou équivalent strict
+	 * @return représentation hexadécimale minuscule du tag (pour comparaison avec {@link #constantTimeEqualsHex(String, String)})
+	 * @throws IllegalStateException si l’algorithme {@code HmacSHA256} n’est pas fourni par le JRE
 	 */
 	public static String hmacSha256Hex(String password, String message) {
 		try {
@@ -47,11 +54,11 @@ public final class SsoHmac {
 	}
 
 	/**
-	 * Compare deux signatures hexadécimales en temps constant.
+	 * Compare deux tags hexadécimaux sans court-circuit sur les octets (via {@link MessageDigest#isEqual(byte[], byte[])}) après parsing.
 	 *
-	 * @param aHex première signature
-	 * @param bHex deuxième signature
-	 * @return true si les signatures sont strictement égales
+	 * @param aHex première empreinte hex (ex. attendue côté serveur)
+	 * @param bHex deuxième empreinte hex (ex. reçue du client)
+	 * @return {@code true} si les deux séquences d’octets décodées sont identiques ; {@code false} si null, longueurs différentes ou parse invalide
 	 */
 	public static boolean constantTimeEqualsHex(String aHex, String bHex) {
 		if (aHex == null || bHex == null || aHex.length() != bHex.length()) {

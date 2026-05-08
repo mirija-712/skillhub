@@ -5,7 +5,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import java.time.Duration;
 
 /**
- * Lockout TP2 + fenêtre temporelle et TTL nonce TP3 (énoncé).
+ * Paramètres externalisés {@code app.auth.*} pour verrouillage de compte et fenêtre SSO / nonce (TP2–TP3).
+ * <p>
+ * <b>Rôle</b> : régler sans recompilation les seuils de sécurité consommés par les services et futurs contrôleurs SSO.
+ *
+ * @author SkillHub
+ * @version 0.0.1-SNAPSHOT
  */
 @ConfigurationProperties(prefix = "app.auth")
 public class AuthSecurityProperties {
@@ -20,42 +25,74 @@ public class AuthSecurityProperties {
 	/** Durée de conservation du nonce en base (≈ now + 2 min à l’énoncé). */
 	private int nonceTtlSeconds = 120;
 
-	/** @return durée de verrouillage d'un compte après dépassement des échecs */
+	/**
+	 * Durée pendant laquelle les nouvelles connexions sont refusées après trop de mots de passe incorrects.
+	 *
+	 * @return fenêtre de blocage appliquée lorsque {@code failed_login_attempts} dépasse le seuil configuré
+	 */
 	public Duration getLockDuration() {
 		return lockDuration;
 	}
 
-	/** @param lockDuration durée de verrouillage d'un compte après dépassement des échecs */
+	/**
+	 * Définit la durée de gel du compte après lockout (binding depuis YAML ou propriétés).
+	 *
+	 * @param lockDuration nouvelle valeur ; typiquement quelques minutes en démo
+	 */
 	public void setLockDuration(Duration lockDuration) {
 		this.lockDuration = lockDuration;
 	}
 
-	/** @return nombre maximum d'échecs de connexion autorisés avant verrouillage */
+	/**
+	 * Plafond de tentatives échouées avant application de {@link #getLockDuration()}.
+	 *
+	 * @return nombre d’échecs consécutifs tolérés (valeur par défaut du TP : 5)
+	 */
 	public int getMaxFailedAttempts() {
 		return maxFailedAttempts;
 	}
 
-	/** @param maxFailedAttempts nombre maximum d'échecs de connexion autorisés avant verrouillage */
+	/**
+	 * Positionne le seuil métier de déclenchement du verrouillage automatique.
+	 *
+	 * @param maxFailedAttempts nombre strictement positif attendu par la configuration
+	 */
 	public void setMaxFailedAttempts(int maxFailedAttempts) {
 		this.maxFailedAttempts = maxFailedAttempts;
 	}
 
-	/** @return tolérance de décalage temporel (en secondes) pour les signatures SSO */
+	/**
+	 * Marge acceptée entre l’horloge client et serveur lors de la validation de signatures horodatées (TP3).
+	 *
+	 * @return nombre de secondes de tolérance de part et d’autre de l’instant serveur
+	 */
 	public int getTimestampSkewSeconds() {
 		return timestampSkewSeconds;
 	}
 
-	/** @param timestampSkewSeconds tolérance de décalage temporel (en secondes) pour les signatures SSO */
+	/**
+	 * Configure la fenêtre temporelle symétrique autorisée pour les flux SSO.
+	 *
+	 * @param timestampSkewSeconds valeur positive exprimée en secondes
+	 */
 	public void setTimestampSkewSeconds(int timestampSkewSeconds) {
 		this.timestampSkewSeconds = timestampSkewSeconds;
 	}
 
-	/** @return durée de vie d'un nonce en secondes */
+	/**
+	 * Durée maximale de validité d’un nonce persisté avant purge ou rejet logique.
+	 *
+	 * @return TTL du nonce en secondes depuis création côté serveur
+	 */
 	public int getNonceTtlSeconds() {
 		return nonceTtlSeconds;
 	}
 
-	/** @param nonceTtlSeconds durée de vie d'un nonce en secondes */
+	/**
+	 * Fixe la TTL des nonces pour limiter la fenêtre d’attaque par rejeu.
+	 *
+	 * @param nonceTtlSeconds durée de conservation acceptable en secondes
+	 */
 	public void setNonceTtlSeconds(int nonceTtlSeconds) {
 		this.nonceTtlSeconds = nonceTtlSeconds;
 	}

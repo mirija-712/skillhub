@@ -7,7 +7,20 @@ import jakarta.validation.constraints.Size;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/** Corps JSON compatible avec le formulaire SkillHub. */
+/**
+ * Données d’entrée pour la création de compte (alignement formulaire SkillHub / Laravel).
+ * <p>
+ * <b>Rôle</b> : porter les contraintes Bean Validation et les alias Jackson ({@code password}, etc.) avant traitement service.
+ *
+ * @param email adresse unique de connexion ; validée format email
+ * @param mot_de_passe mot de passe principal (JSON {@code mot_de_passe} ou alias {@code password})
+ * @param confirm_mot_de_passe confirmation obligatoire pour éviter les erreurs de saisie
+ * @param nom nom de famille affiché (max 100 caractères)
+ * @param prenom prénom optionnel (max 100 caractères)
+ * @param role soit {@code participant} soit {@code formateur}
+ * @author SkillHub
+ * @version 0.0.1-SNAPSHOT
+ */
 public record RegisterRequest(
 		@NotBlank(message = "L'email est obligatoire")
 		@Email(message = "Format d'email invalide")

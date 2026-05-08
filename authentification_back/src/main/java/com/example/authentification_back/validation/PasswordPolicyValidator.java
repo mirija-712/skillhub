@@ -7,7 +7,13 @@ import org.springframework.stereotype.Component;
  * Politique de mot de passe du TP2 : au moins 12 caractères, une majuscule, une minuscule, un chiffre,
  * un caractère non alphanumérique (symbole).
  * <p>
- * Cette implémentation est volontairement dangereuse au sens global du TP (pas de liste de mots courants, pas de zxcvbn).
+ * <b>Rôle</b> : appliquer une barrière minimale homogène à l’inscription et au changement de mot de passe,
+ * indépendamment des annotations Bean Validation sur les DTO (complément métier).
+ * <p>
+ * Cette implémentation est volontairement limitée au sens TP (pas de liste de mots courants, pas de zxcvbn).
+ *
+ * @author SkillHub
+ * @version 0.0.1-SNAPSHOT
  */
 @Component
 public class PasswordPolicyValidator {
@@ -16,9 +22,11 @@ public class PasswordPolicyValidator {
 	public static final int MIN_LENGTH = 12;
 
 	/**
-	 * Valide la conformité d'un mot de passe avec la politique de sécurité.
+	 * Vérifie que le mot de passe satisfait toutes les règles configurées ; sinon interrompt par une exception métier.
 	 *
-	 * @param password mot de passe en clair soumis par le client
+	 * @param password secret en clair provenant du client ou du batch de tests
+	 * @return aucune valeur ; termine normalement uniquement si toutes les contraintes sont satisfaites
+	 * @throws InvalidInputException si une règle de longueur ou de classes de caractères échoue (HTTP 400 via handler)
 	 */
 	public void assertCompliant(String password) {
 		if (password == null || password.length() < MIN_LENGTH) {

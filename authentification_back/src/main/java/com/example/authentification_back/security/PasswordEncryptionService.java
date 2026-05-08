@@ -14,11 +14,17 @@ import java.util.Base64;
 
 /**
  * TP4 — Chiffrement réversible des mots de passe pour permettre le login TP3 (HMAC avec le mot de passe en clair côté serveur).
+ * <p>
+ * <b>Rôle</b> : dériver une clé AES depuis {@code APP_MASTER_KEY}, chiffrer et déchiffrer des secrets avec IV aléatoire,
+ * en conservant un format versionné interopérable avec d'éventuelles données legacy.
  * <ul>
  *   <li><b>Clé</b> : variable d’environnement {@code APP_MASTER_KEY} uniquement (énoncé : jamais en dur).</li>
  *   <li><b>Algo</b> : AES-256-GCM (confidentialité + intégrité / tag d’authentification).</li>
  *   <li><b>Stockage</b> : {@code v1:Base64(iv):Base64(ciphertext)} ; IV différent à chaque chiffrement (pas d’IV fixe).</li>
  * </ul>
+ *
+ * @author SkillHub
+ * @version 0.0.1-SNAPSHOT
  */
 @Service
 public class PasswordEncryptionService {
@@ -38,9 +44,10 @@ public class PasswordEncryptionService {
 	private final SecretKey aesKey;
 
 	/**
-	 * Construit le service de chiffrement à partir de la clé maître d'environnement.
+	 * Construit le service : exige une clé maître non vide, dérive une {@link SecretKey} AES-256 via SHA-256.
 	 *
-	 * @param appMasterKey valeur de {@code APP_MASTER_KEY}
+	 * @param appMasterKey chaîne injectée depuis {@code APP_MASTER_KEY} ; chaîne vide si variable absente (Spring)
+	 * @throws IllegalStateException si la clé est absente ou vide : démarrage refusé pour éviter une clé par défaut en dur
 	 */
 	public PasswordEncryptionService(@Value("${APP_MASTER_KEY:}") String appMasterKey) {
 		// Spring injecte "" si la variable est absente : même comportement que « non définie ».
@@ -62,10 +69,11 @@ public class PasswordEncryptionService {
 	}
 
 	/**
-	 * Chiffre le mot de passe avant persistance JPA.
+	 * Chiffre un mot de passe en clair avec AES-GCM et un IV aléatoire pour chaque appel.
 	 *
-	 * @param plainPassword mot de passe en clair
-	 * @return chaîne au format {@code v1:Base64(iv):Base64(ciphertext)} (ciphertext inclut le tag GCM).
+	 * @param plainPassword secret utilisateur avant persistance ; ne doit pas être null pour un comportement utile
+	 * @return représentation sérialisable {@code v1:…} incluant IV et ciphertext + tag d’authenticité GCM encodés Base64
+	 * @throws IllegalStateException si l’API crypto échoue (algorithme indisponible, clé invalide, etc.)
 	 */
 	public String encrypt(String plainPassword) {
 		try {
@@ -83,11 +91,11 @@ public class PasswordEncryptionService {
 	}
 
 	/**
-	 * Déchiffre la valeur lue en base pour recalculer le HMAC au login (TP3).
-	 * Accepte le format {@code v1:...} ou l’ancien format « un seul Base64 » (migration).
+	 * Déchiffre une valeur persistée pour usages métier (ex. recalcul HMAC TP3) ; compatible format {@code v1:} et ancien Base64 concaténé.
 	 *
-	 * @param stored valeur chiffrée stockée en base
-	 * @return mot de passe en clair
+	 * @param stored chaîne lue en base (préfixe {@code v1:} ou ancien encodage legacy)
+	 * @return mot de passe ou secret en clair UTF-8 après vérification du tag GCM
+	 * @throws IllegalStateException si entrée vide, format invalide, altération du ciphertext ou erreur crypto
 	 */
 	public String decrypt(String stored) {
 		if (stored == null || stored.isBlank()) {

@@ -12,18 +12,23 @@ import java.time.Instant;
 import java.util.stream.Collectors;
 
 /**
- * Intercepte les exceptions métier et les erreurs de validation Bean Validation pour renvoyer
- * toujours un JSON {@link ApiErrorResponse} cohérent (TP1 / TP2).
+ * Advice MVC centralisant la traduction des exceptions applicatives et de validation en réponses JSON homogènes.
+ * <p>
+ * <b>Rôle</b> : garantir pour chaque erreur un corps {@link ApiErrorResponse} (timestamp, statut, libellé HTTP,
+ * message métier, chemin) afin que clients et tests puissent parser un schéma unique (TP1 / TP2).
+ *
+ * @author SkillHub
+ * @version 0.0.1-SNAPSHOT
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
 	/**
-	 * Gère les erreurs métier de saisie.
+	 * Transforme une erreur de saisie ou de règle métier « bad request » en réponse 400 structurée.
 	 *
-	 * @param ex exception métier
-	 * @param req requête HTTP en cours
-	 * @return réponse normalisée en HTTP 400
+	 * @param ex exception portant le message utilisateur affichable
+	 * @param req requête courante pour renseigner le champ {@code path} du DTO d’erreur
+	 * @return entité {@link ApiErrorResponse} encapsulée dans HTTP 400
 	 */
 	@ExceptionHandler(InvalidInputException.class)
 	public ResponseEntity<ApiErrorResponse> handleInvalid(InvalidInputException ex, HttpServletRequest req) {
@@ -31,11 +36,11 @@ public class GlobalExceptionHandler {
 	}
 
 	/**
-	 * Gère les comptes temporairement verrouillés.
+	 * Répond aux tentatives de connexion sur un compte encore sous délai de verrouillage (Locked).
 	 *
-	 * @param ex exception métier
-	 * @param req requête HTTP en cours
-	 * @return réponse normalisée en HTTP 423
+	 * @param ex exception avec message invitant à réessayer ultérieurement
+	 * @param req requête pour tracer l’URI appelée dans la réponse
+	 * @return corps d’erreur avec statut HTTP 423 (WebDAV « Locked », utilisé ici comme compte gelé)
 	 */
 	@ExceptionHandler(AccountLockedException.class)
 	public ResponseEntity<ApiErrorResponse> handleLocked(AccountLockedException ex, HttpServletRequest req) {
@@ -43,11 +48,11 @@ public class GlobalExceptionHandler {
 	}
 
 	/**
-	 * Gère les échecs d'authentification.
+	 * Couvre jeton absent/invalide ou identifiants de connexion incorrects selon les services qui propagent {@link AuthenticationFailedException}.
 	 *
-	 * @param ex exception métier
-	 * @param req requête HTTP en cours
-	 * @return réponse normalisée en HTTP 401
+	 * @param ex détail fonctionnel volontairement parfois générique pour limiter l’énumération d’utilisateurs
+	 * @param req requête associée pour le champ {@code path}
+	 * @return enveloppe JSON avec statut HTTP 401 Unauthorized
 	 */
 	@ExceptionHandler(AuthenticationFailedException.class)
 	public ResponseEntity<ApiErrorResponse> handleAuth(AuthenticationFailedException ex, HttpServletRequest req) {
@@ -55,11 +60,11 @@ public class GlobalExceptionHandler {
 	}
 
 	/**
-	 * Gère les conflits métier (ex: email déjà utilisé).
+	 * Répond aux violations d’unicité ou autres situations où la ressource existe déjà (ex. email pris).
 	 *
-	 * @param ex exception métier
-	 * @param req requête HTTP en cours
-	 * @return réponse normalisée en HTTP 409
+	 * @param ex message décrivant le conflit côté client
+	 * @param req requête pour journaliser le chemin dans la charge JSON
+	 * @return réponse dont le code HTTP est 409 Conflict
 	 */
 	@ExceptionHandler(ResourceConflictException.class)
 	public ResponseEntity<ApiErrorResponse> handleConflict(ResourceConflictException ex, HttpServletRequest req) {
@@ -67,11 +72,11 @@ public class GlobalExceptionHandler {
 	}
 
 	/**
-	 * Gère les erreurs de validation Bean Validation sur les DTO.
+	 * Agrège les erreurs {@code javax.validation} portées par {@link MethodArgumentNotValidException} en un seul message lisible.
 	 *
-	 * @param ex exception de validation Spring
-	 * @param req requête HTTP en cours
-	 * @return réponse normalisée en HTTP 400
+	 * @param ex résultat de liaison avec liste des {@code FieldError}
+	 * @param req requête HTTP servant au champ {@code path}
+	 * @return réponse 400 dont le message concatène {@code champ: message} pour chaque erreur
 	 */
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	public ResponseEntity<ApiErrorResponse> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest req) {

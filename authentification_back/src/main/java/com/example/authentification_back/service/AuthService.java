@@ -27,10 +27,15 @@ import java.util.UUID;
 /**
  * Logique métier d'authentification SkillHub.
  * <p>
+ * <b>Rôle</b> : centraliser les règles d'inscription, de connexion avec gestion du verrouillage,
+ * de résolution de session par jeton opaque et de changement de mot de passe conforme à la politique.
  * <b>Inscription</b> : contrôle d'unicité email, hash BCrypt du mot de passe, persistance des champs profil.
  * <b>Connexion</b> : vérifie le mot de passe, gère le verrouillage après échecs ({@link com.example.authentification_back.config.AuthSecurityProperties}),
  * génère un jeton de session (UUID) stocké en base.
  * <b>Profil</b> : {@code currentUser} résout l'utilisateur par ce jeton.
+ *
+ * @author SkillHub
+ * @version 0.0.1-SNAPSHOT
  */
 @Service
 public class AuthService {
@@ -50,12 +55,12 @@ public class AuthService {
 	private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
 	/**
-	 * Construit le service d'authentification.
+	 * Construit le service avec ses dépendances injectées (persistance, configuration sécurité, validation, temps).
 	 *
-	 * @param userRepository accès aux utilisateurs
-	 * @param authProperties paramètres de sécurité (lockout, etc.)
-	 * @param passwordPolicyValidator validateur de robustesse des mots de passe
-	 * @param clock horloge injectée (utile pour les tests)
+	 * @param userRepository accès lecture/écriture aux {@link com.example.authentification_back.entity.User}
+	 * @param authProperties seuils de verrouillage et durée de blocage après échecs répétés
+	 * @param passwordPolicyValidator contrôle de complexité des mots de passe à la création et au changement
+	 * @param clock horloge utilisée pour {@link Instant} (verrouillage, tests déterministes)
 	 */
 	public AuthService(
 			UserRepository userRepository,
@@ -69,10 +74,12 @@ public class AuthService {
 	}
 
 	/**
-	 * Inscrit un nouvel utilisateur et persiste son mot de passe chiffré BCrypt.
+	 * Inscrit un nouvel utilisateur : unicité email, validation métier, hash BCrypt et persistance JPA.
 	 *
-	 * @param request données d'inscription
-	 * @return profil du nouvel utilisateur
+	 * @param request DTO d'inscription déjà validé côté contrôleur (Bean Validation)
+	 * @return représentation profil sans jeton ({@link UserResponse#profile})
+	 * @throws ResourceConflictException si {@link UserRepository#existsByEmail(String)} est vrai pour l'email normalisé
+	 * @throws InvalidInputException si rôle hors périmètre, confirmation de mot de passe ou politique de mot de passe non respectée
 	 */
 	@Transactional
 	public UserResponse register(RegisterRequest request) {
@@ -104,10 +111,12 @@ public class AuthService {
 	}
 
 	/**
-	 * Authentifie un utilisateur et crée une nouvelle session.
+	 * Authentifie un utilisateur : vérifie verrouillage, mot de passe BCrypt, réinitialise les échecs et pose un nouveau jeton UUID.
 	 *
-	 * @param request identifiants de connexion
-	 * @return profil utilisateur avec jeton de session
+	 * @param request couple email / mot de passe tel que reçu du client
+	 * @return profil enrichi du jeton courant ({@link UserResponse#login})
+	 * @throws AuthenticationFailedException si email inconnu ou mot de passe incorrect (message générique volontaire)
+	 * @throws AccountLockedException si {@code lockUntil} est encore dans le futur par rapport à {@link #clock}
 	 */
 	@Transactional(noRollbackFor = AuthenticationFailedException.class)
 	public UserResponse login(LoginRequest request) {
@@ -171,10 +180,11 @@ public class AuthService {
 	}
 
 	/**
-	 * Retourne le profil de l'utilisateur correspondant au jeton fourni.
+	 * Résout l'utilisateur par jeton opaque persisté et renvoie son profil public (sans renvoyer le jeton).
 	 *
-	 * @param rawToken jeton brut (Authorization ou X-Auth-Token)
-	 * @return profil utilisateur sans jeton
+	 * @param rawToken jeton tel qu'extrait des en-têtes HTTP (espaces éventuellement présents, sera trim)
+	 * @return DTO profil si une ligne {@link User} correspond au jeton
+	 * @throws AuthenticationFailedException si jeton null/blanc ou aucune correspondance en base
 	 */
 	@Transactional(readOnly = true)
 	public UserResponse currentUser(String rawToken) {
@@ -188,10 +198,13 @@ public class AuthService {
 	}
 
 	/**
-	 * Met à jour le mot de passe de l'utilisateur authentifié.
+	 * Met à jour le mot de passe après vérification de l'ancien et conformité du nouveau (politique + confirmation).
 	 *
-	 * @param rawToken jeton de session brut
-	 * @param request ancien mot de passe, nouveau mot de passe et confirmation
+	 * @param rawToken jeton de session permettant de retrouver l'utilisateur ({@link #requireUserByToken(String)})
+	 * @param request ancien mot de passe en clair, nouveau et confirmation
+	 * @return aucune valeur ; effet de bord : enregistrement du nouveau hash BCrypt pour l'utilisateur courant
+	 * @throws AuthenticationFailedException si jeton absent ou utilisateur introuvable
+	 * @throws InvalidInputException si ancien mot de passe incorrect, confirmation différente ou politique non respectée
 	 */
 	@Transactional
 	public void changePassword(String rawToken, ChangePasswordRequest request) {

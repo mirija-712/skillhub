@@ -4,16 +4,22 @@ import com.example.authentification_back.entity.AuthNonce;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /**
- * Accès données des nonces anti-rejeu utilisés par le flux SSO.
+ * Persistance des enregistrements {@link AuthNonce} pour anti-rejeu par couple utilisateur / nonce.
+ * <p>
+ * <b>Rôle</b> : permettre au flux SSO de rejeter une réutilisation de nonce ou de détecter des collisions contrôlées.
+ *
+ * @author SkillHub
+ * @version 0.0.1-SNAPSHOT
  */
 public interface AuthNonceRepository extends JpaRepository<AuthNonce, Long> {
 
 	/**
-	 * Vérifie l'existence d'un nonce déjà utilisé pour un utilisateur.
+	 * Indique si la demande courante réemploie un nonce déjà consigné pour cet utilisateur (protection rejeu).
 	 *
-	 * @param userId identifiant utilisateur
-	 * @param nonce nonce reçu dans la requête
-	 * @return true si ce couple utilisateur/nonce existe déjà
+	 * @param userId clé étrangère logique vers {@code utilisateurs.id}
+	 * @param nonce valeur aléatoire ou opaque issue du client / broker SSO
+	 * @return {@code true} si une ligne existe déjà pour ce couple ; {@code false} si première occurrence
+	 * @throws org.springframework.dao.DataAccessException si la requête dérivée échoue côté datasource
 	 */
 	boolean existsByUserIdAndNonce(Long userId, String nonce);
 }

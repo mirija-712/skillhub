@@ -6,31 +6,40 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
 /**
- * Accès données pour {@link User} : requêtes dérivées Spring Data JPA.
+ * Couche de persistance Spring Data pour l’entité {@link User} (table {@code utilisateurs}).
+ * <p>
+ * <b>Rôle</b> : exposer les requêtes dérivées utilisées par {@link com.example.authentification_back.service.AuthService}
+ * sans implémentation manuelle (proxy runtime Spring Data).
+ *
+ * @author SkillHub
+ * @version 0.0.1-SNAPSHOT
  */
 public interface UserRepository extends JpaRepository<User, Long> {
 
 	/**
-	 * Recherche un utilisateur par email.
+	 * Résout un utilisateur par son email fonctionnel (unique métier).
 	 *
-	 * @param email email normalisé
-	 * @return utilisateur trouvé, sinon vide
+	 * @param email valeur déjà normalisée (trim / casse) pour correspondre à la colonne indexée
+	 * @return ligne {@link User} encapsulée ou {@link Optional#empty()} si aucune correspondance
+	 * @throws org.springframework.dao.DataAccessException si la requête SQL ou la session JPA échoue
 	 */
 	Optional<User> findByEmail(String email);
 
 	/**
-	 * Recherche un utilisateur par jeton de session.
+	 * Résout la session courante via le jeton opaque stocké en base après connexion réussie.
 	 *
-	 * @param token jeton persistant
-	 * @return utilisateur trouvé, sinon vide
+	 * @param token UUID ou chaîne persistée dans {@code utilisateurs.token}
+	 * @return utilisateur actif pour ce jeton, sinon vide si jeton révoqué ou inconnu
+	 * @throws org.springframework.dao.DataAccessException si la couche persistence remonte une erreur d’accès données
 	 */
 	Optional<User> findByToken(String token);
 
 	/**
-	 * Vérifie si un email est déjà pris.
+	 * Teste l’unicité de l’email avant inscription pour éviter une contrainte SQL brutale.
 	 *
-	 * @param email email normalisé
-	 * @return true si un utilisateur existe déjà avec cet email
+	 * @param email même normalisation que pour {@link #findByEmail(String)}
+	 * @return {@code true} si au moins une ligne porte cet email ; {@code false} si disponible pour création
+	 * @throws org.springframework.dao.DataAccessException si le test d’existence ne peut pas être exécuté
 	 */
 	boolean existsByEmail(String email);
 }
