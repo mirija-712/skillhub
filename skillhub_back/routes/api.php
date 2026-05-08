@@ -29,6 +29,7 @@ Route::middleware('auth.remote')->group(function () {
     Route::get('formations/{formationId}/modules', [ModuleController::class, 'index'])->whereNumber('formationId');
 
     Route::middleware('formateur')->group(function () {
+        Route::get('formateur/{id}/apprenants', [InscriptionController::class, 'apprenantsForFormateur'])->whereNumber('id');
         Route::post('formations', [FormationController::class, 'store']);
         Route::put('formations/{formation}', [FormationController::class, 'update']);
         Route::post('formations/{formation}', [FormationController::class, 'update']);

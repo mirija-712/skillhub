@@ -16,6 +16,37 @@ use Illuminate\Http\Request;
  */
 class InscriptionController extends Controller
 {
+    public function apprenantsForFormateur(Request $request, int $id): JsonResponse
+    {
+        $formateurId = (int) $request->user()->id;
+
+        $formation = Formation::find($id);
+        if (! $formation) {
+            return response()->json(['message' => 'Formation introuvable'], 404);
+        }
+
+        if ((int) $formation->id_formateur !== $formateurId) {
+            return response()->json(['message' => 'Accès refusé: vous n\'êtes pas propriétaire de cette formation.'], 403);
+        }
+
+        $apprenants = Inscription::with('utilisateur:id,nom,email')
+            ->where('formation_id', $formation->id)
+            ->orderByDesc('date_inscription')
+            ->get()
+            ->map(function (Inscription $inscription) {
+                return [
+                    'id' => (int) $inscription->utilisateur_id,
+                    'nom' => $inscription->utilisateur?->nom,
+                    'email' => $inscription->utilisateur?->email,
+                    'progression' => (int) $inscription->progression,
+                    'date_inscription' => $inscription->date_inscription,
+                ];
+            })
+            ->values();
+
+        return response()->json(['apprenants' => $apprenants], 200);
+    }
+
     public function store(Request $request, int $formationId): JsonResponse
     {
         $userId = (int) $request->user()->id;

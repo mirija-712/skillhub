@@ -464,6 +464,138 @@ php artisan migrate
 
 C'est possible: les tests utilisent souvent SQLite en mémoire (`phpunit.xml`) alors que `migrate` utilise ta DB de `.env`.
 
+### Fonctionnalité 2 — Liste des apprenants inscrits (vue formateur)
+
+Objectif:
+- permettre à un formateur de consulter la liste des apprenants inscrits à **sa propre formation**.
+
+Endpoint:
+- **GET** `/api/formateur/{id}/apprenants`
+- `{id}` = identifiant de la **formation** (et non id formateur)
+
+Accès:
+- utilisateur authentifié (middleware `auth.remote`)
+- rôle `formateur` (middleware `formateur`)
+- propriétaire de la formation uniquement (`formation.id_formateur == user.id`)
+
+Réponse `200`:
+- toujours un JSON avec clé `apprenants`
+- tableau d'objets avec: `id`, `nom`, `email`, `progression`, `date_inscription`
+- si aucun inscrit: `apprenants: []`
+
+Réponses d'erreur:
+- `401` sans token / token invalide
+- `403` formateur non propriétaire
+
+#### Exemple de réponse (avec inscrits)
+
+```json
+{
+  "apprenants": [
+    {
+      "id": 21,
+      "nom": "Diallo",
+      "email": "diallo@example.com",
+      "progression": 45,
+      "date_inscription": "2026-05-08T08:15:22.000000Z"
+    },
+    {
+      "id": 22,
+      "nom": "Traore",
+      "email": "traore@example.com",
+      "progression": 100,
+      "date_inscription": "2026-05-07T10:01:00.000000Z"
+    }
+  ]
+}
+```
+
+#### Exemple de réponse (aucun apprenant)
+
+```json
+{
+  "apprenants": []
+}
+```
+
+#### Route ajoutée
+
+Fichier: `routes/api.php`
+
+```php
+Route::middleware('auth.remote')->group(function () {
+    Route::middleware('formateur')->group(function () {
+        Route::get('formateur/{id}/apprenants', [InscriptionController::class, 'apprenantsForFormateur'])
+            ->whereNumber('id');
+    });
+});
+```
+
+#### Logique contrôleur ajoutée
+
+Fichier: `app/Http/Controllers/Api/InscriptionController.php`
+
+```php
+public function apprenantsForFormateur(Request $request, int $id): JsonResponse
+{
+    $formateurId = (int) $request->user()->id;
+
+    $formation = Formation::find($id);
+    if (! $formation) {
+        return response()->json(['message' => 'Formation introuvable'], 404);
+    }
+
+    if ((int) $formation->id_formateur !== $formateurId) {
+        return response()->json(['message' => 'Accès refusé: vous n\'êtes pas propriétaire de cette formation.'], 403);
+    }
+
+    $apprenants = Inscription::with('utilisateur:id,nom,email')
+        ->where('formation_id', $formation->id)
+        ->orderByDesc('date_inscription')
+        ->get()
+        ->map(function (Inscription $inscription) {
+            return [
+                'id' => (int) $inscription->utilisateur_id,
+                'nom' => $inscription->utilisateur?->nom,
+                'email' => $inscription->utilisateur?->email,
+                'progression' => (int) $inscription->progression,
+                'date_inscription' => $inscription->date_inscription,
+            ];
+        })
+        ->values();
+
+    return response()->json(['apprenants' => $apprenants], 200);
+}
+```
+
+#### Tests PHPUnit ajoutés
+
+Fichier: `tests/Feature/FormateurApprenantsTest.php`
+
+Cas couverts:
+- formateur propriétaire => `200` + liste des apprenants
+- formateur non propriétaire => `403`
+- formateur sans apprenant => `200` + tableau vide
+- requête sans token => `401`
+
+Commande:
+
+```bash
+php artisan test --filter=FormateurApprenantsTest
+```
+
+#### Workflow Postman (fonctionnalité 2 uniquement)
+
+1. Obtenir un token formateur depuis `authentification_back`
+   - `POST http://127.0.0.1:8080/api/auth/connexion`
+2. Appeler la route Laravel:
+   - `GET http://127.0.0.1:8000/api/formateur/{FORMATION_ID}/apprenants`
+   - Header: `Authorization: Bearer <TOKEN_FORMATEUR>`
+3. Vérifier les cas:
+   - propriétaire => `200`
+   - non propriétaire => `403`
+   - sans token => `401`
+
 #### Regle metier : maximum 5 formations par apprenant
 
 Lors d’un `POST /api/formations/{formationId}/inscription`, l’API doit refuser l’inscription si l’apprenant a deja 5 inscriptions actives.
