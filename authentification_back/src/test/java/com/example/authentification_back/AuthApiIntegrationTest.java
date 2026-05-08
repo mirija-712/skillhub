@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.locks.LockSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -307,7 +308,7 @@ class AuthApiIntegrationTest {
 								"{\"email\":\"%s\",\"nonce\":\"%s\",\"timestamp\":%d,\"hmac\":\"%s\"}",
 								emLower, nonce6, ts6, badHmac6)))
 				.andExpect(status().is(HttpStatus.LOCKED.value()));
-		Thread.sleep(3100);
+		LockSupport.parkNanos(3_100_000_000L);
 		mockMvc.perform(post("/api/auth/login")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(loginHmacJson(email, strong, UUID.randomUUID().toString(), Instant.now().getEpochSecond())))
@@ -360,7 +361,7 @@ class AuthApiIntegrationTest {
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
 						.content(changePasswordJson("WrongPwd1!", newPassword, newPassword)))
 				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.message").value(AuthService.CHANGE_PASSWORD_OLD_PASSWORD_ERROR));
+				.andExpect(jsonPath("$.message").value(AuthService.CHANGE_OLD_CREDENTIAL_ERROR));
 	}
 
 	@Test

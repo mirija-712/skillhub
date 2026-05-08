@@ -24,7 +24,20 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class AuthenticateWithAuthService
 {
+    /** @var string[] */
+    private const ALLOWED_SCHEMES = ['http', 'https'];
+
     public function handle(Request $request, Closure $next): Response
+    {
+        $authErrorResponse = $this->authenticateRequest($request);
+        if ($authErrorResponse !== null) {
+            return $authErrorResponse;
+        }
+
+        return $next($request);
+    }
+
+    private function authenticateRequest(Request $request): ?Response
     {
         $token = $this->extractBearerToken($request);
         if (! $token) {
@@ -35,6 +48,14 @@ class AuthenticateWithAuthService
         // En conteneur, localhost pointe vers le conteneur Laravel lui-même; on force le service Docker "auth".
         if ($authBaseUrl === '' || (file_exists('/.dockerenv') && str_contains($authBaseUrl, 'localhost'))) {
             $authBaseUrl = 'http://auth:8080/api';
+        }
+        if (! $this->isAllowedAuthBaseUrl($authBaseUrl)) {
+            Log::warning('Auth remote base URL rejected by allowlist', [
+                'auth_base_url' => $authBaseUrl,
+                'path' => $request->path(),
+            ]);
+
+            return response()->json(['message' => "Service d'authentification indisponible."], 503);
         }
 
         try {
@@ -48,18 +69,12 @@ class AuthenticateWithAuthService
                 'auth_base_url' => $authBaseUrl,
                 'path' => $request->path(),
                 'method' => $request->method(),
-                'error' => $e->getMessage(),
+                'error_class' => $e::class,
             ]);
-            error_log('Auth remote unavailable: '.$e->getMessage());
 
-            $payload = [
+            return response()->json([
                 'message' => "Service d'authentification indisponible. Veuillez reessayer dans quelques instants.",
-            ];
-            if (config('app.debug')) {
-                $payload['debug'] = $e->getMessage();
-            }
-
-            return response()->json($payload, 503);
+            ], 503);
         }
 
         if (! $response->successful()) {
@@ -80,8 +95,7 @@ class AuthenticateWithAuthService
         ];
 
         $request->setUserResolver(fn () => $authUser);
-
-        return $next($request);
+        return null;
     }
 
     private function extractBearerToken(Request $request): ?string
@@ -92,5 +106,27 @@ class AuthenticateWithAuthService
         }
 
         return null;
+    }
+
+    private function isAllowedAuthBaseUrl(string $baseUrl): bool
+    {
+        $parts = parse_url($baseUrl);
+        if (! is_array($parts) || ! isset($parts['scheme'], $parts['host'])) {
+            return false;
+        }
+
+        $scheme = strtolower((string) $parts['scheme']);
+        if (! in_array($scheme, self::ALLOWED_SCHEMES, true)) {
+            return false;
+        }
+
+        $allowedHosts = (array) config('services.authentification.allowed_hosts', []);
+        if ($allowedHosts === []) {
+            return true;
+        }
+
+        $host = strtolower((string) $parts['host']);
+
+        return in_array($host, array_map('strtolower', $allowedHosts), true);
     }
 }

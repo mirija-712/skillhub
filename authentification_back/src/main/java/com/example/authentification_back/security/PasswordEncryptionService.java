@@ -37,6 +37,7 @@ public class PasswordEncryptionService {
 
 	/** Tag d’authentification GCM en bits (128 bits = 16 octets dans le flux chiffré). */
 	private static final int GCM_TAG_LENGTH = 128;
+	private static final String AES_GCM_NO_PADDING = "AES/GCM/NoPadding";
 
 	/** Réutilisé pour les IV (évite d’instancier un nouveau générateur à chaque chiffrement). */
 	private static final SecureRandom SECURE_RANDOM = new SecureRandom();
@@ -79,7 +80,7 @@ public class PasswordEncryptionService {
 		try {
 			byte[] iv = new byte[GCM_IV_LENGTH];
 			SECURE_RANDOM.nextBytes(iv); // IV aléatoire : interdit d’utiliser un IV fixe (énoncé TP4).
-			Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+			Cipher cipher = Cipher.getInstance(AES_GCM_NO_PADDING);
 			cipher.init(Cipher.ENCRYPT_MODE, aesKey, new GCMParameterSpec(GCM_TAG_LENGTH, iv));
 			byte[] cipherText = cipher.doFinal(plainPassword.getBytes(StandardCharsets.UTF_8));
 			String ivB64 = Base64.getEncoder().encodeToString(iv);
@@ -116,7 +117,7 @@ public class PasswordEncryptionService {
 			}
 			byte[] iv = Base64.getDecoder().decode(payload.substring(0, sep));
 			byte[] cipherText = Base64.getDecoder().decode(payload.substring(sep + 1));
-			Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+			Cipher cipher = Cipher.getInstance(AES_GCM_NO_PADDING);
 			cipher.init(Cipher.DECRYPT_MODE, aesKey, new GCMParameterSpec(GCM_TAG_LENGTH, iv));
 			byte[] plain = cipher.doFinal(cipherText); // lève si le ciphertext a été altéré (intégrité GCM)
 			return new String(plain, StandardCharsets.UTF_8);
@@ -133,7 +134,7 @@ public class PasswordEncryptionService {
 			System.arraycopy(combined, 0, iv, 0, GCM_IV_LENGTH);
 			byte[] cipherText = new byte[combined.length - GCM_IV_LENGTH];
 			System.arraycopy(combined, GCM_IV_LENGTH, cipherText, 0, cipherText.length);
-			Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+			Cipher cipher = Cipher.getInstance(AES_GCM_NO_PADDING);
 			cipher.init(Cipher.DECRYPT_MODE, aesKey, new GCMParameterSpec(GCM_TAG_LENGTH, iv));
 			byte[] plain = cipher.doFinal(cipherText);
 			return new String(plain, StandardCharsets.UTF_8);

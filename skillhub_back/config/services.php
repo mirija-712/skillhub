@@ -38,6 +38,10 @@ return [
     'authentification' => [
         'base_url' => env('AUTHENTIFICATION_API_URL', 'http://auth:8080/api'),
         'timeout' => (int) env('AUTHENTIFICATION_API_TIMEOUT', 8),
+        'allowed_hosts' => array_filter(array_map('trim', explode(',', (string) env(
+            'AUTHENTIFICATION_API_ALLOWED_HOSTS',
+            'auth,127.0.0.1,localhost'
+        )))),
     ],
 
 ];

@@ -60,4 +60,19 @@ class PasswordPolicyValidatorTest {
 	void rejects_null() {
 		assertThatThrownBy(() -> validator.assertCompliant(null)).isInstanceOf(InvalidInputException.class);
 	}
+
+	@Test
+	void rejects_too_long_password() {
+		String tooLong = "Aa1!" + "a".repeat(130);
+		assertThatThrownBy(() -> validator.assertCompliant(tooLong))
+				.isInstanceOf(InvalidInputException.class)
+				.hasMessageContaining("128");
+	}
+
+	@Test
+	void rejects_common_passwords_even_if_complex() {
+		assertThatThrownBy(() -> validator.assertCompliant("Aa1!password123XYZ"))
+				.isInstanceOf(InvalidInputException.class)
+				.hasMessageContaining("trop commun");
+	}
 }

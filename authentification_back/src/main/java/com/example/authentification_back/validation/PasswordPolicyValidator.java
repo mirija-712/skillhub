@@ -20,6 +20,10 @@ public class PasswordPolicyValidator {
 
 	/** Longueur minimale requise pour les mots de passe. */
 	public static final int MIN_LENGTH = 12;
+	private static final int MAX_LENGTH = 128;
+	private static final String[] COMMON_WEAK_PASSWORDS = {
+			"password", "password123", "azerty", "qwerty", "123456", "123456789", "admin"
+	};
 
 	/**
 	 * Vérifie que le mot de passe satisfait toutes les règles configurées ; sinon interrompt par une exception métier.
@@ -32,6 +36,15 @@ public class PasswordPolicyValidator {
 		if (password == null || password.length() < MIN_LENGTH) {
 			throw new InvalidInputException(
 					"Le mot de passe doit contenir au moins " + MIN_LENGTH + " caractères");
+		}
+		if (password.length() > MAX_LENGTH) {
+			throw new InvalidInputException("Le mot de passe ne peut pas dépasser " + MAX_LENGTH + " caractères");
+		}
+		String lowered = password.toLowerCase();
+		for (String weak : COMMON_WEAK_PASSWORDS) {
+			if (lowered.contains(weak)) {
+				throw new InvalidInputException("Le mot de passe est trop commun");
+			}
 		}
 		if (!password.matches(".*[A-Z].*")) {
 			throw new InvalidInputException("Le mot de passe doit contenir au moins une majuscule");

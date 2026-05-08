@@ -44,7 +44,7 @@ public class AuthService {
 	public static final String GENERIC_LOGIN_ERROR = "Identifiants invalides";
 
 	/** Message API pour changement de mot de passe : ancien mot de passe incorrect (tests + cohérence). */
-	public static final String CHANGE_PASSWORD_OLD_PASSWORD_ERROR = "Ancien mot de passe incorrect";
+	public static final String CHANGE_OLD_CREDENTIAL_ERROR = "Ancien mot de passe incorrect";
 
 	private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
@@ -212,7 +212,7 @@ public class AuthService {
 
 		if (!passwordEncoder.matches(request.oldPassword(), user.getMotDePasse())) {
 			log.warn("Changement mot de passe refusé: ancien mot de passe invalide user id={}", user.getId());
-			throw new InvalidInputException(CHANGE_PASSWORD_OLD_PASSWORD_ERROR);
+			throw new InvalidInputException(CHANGE_OLD_CREDENTIAL_ERROR);
 		}
 		if (!request.newPassword().equals(request.confirmPassword())) {
 			throw new InvalidInputException("Les mots de passe ne correspondent pas");

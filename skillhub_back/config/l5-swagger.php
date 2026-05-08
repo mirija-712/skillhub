@@ -67,7 +67,7 @@ return [
             'middleware' => [
                 'api' => [],
                 'asset' => [],
-                'docs' => [],
+                'docs' => explode(',', (string) env('L5_SWAGGER_DOCS_MIDDLEWARE', 'auth.remote,formateur')),
                 'oauth2_callback' => [],
             ],
 

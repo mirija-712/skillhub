@@ -14,51 +14,58 @@ class RatingController extends Controller
 {
     public function store(Request $request, int $id): JsonResponse
     {
+        $status = 201;
+        $payload = [];
         $user = $request->user();
         if (! $user) {
-            return response()->json(['message' => 'Token manquant ou invalide. Veuillez vous reconnecter.'], 401);
+            $status = 401;
+            $payload = ['message' => 'Token manquant ou invalide. Veuillez vous reconnecter.'];
+        } else {
+            $formation = Formation::find($id);
+            if (! $formation) {
+                $status = 404;
+                $payload = ['message' => 'Formation introuvable'];
+            } else {
+                $isInscrit = Inscription::where('utilisateur_id', (int) $user->id)
+                    ->where('formation_id', $formation->id)
+                    ->exists();
+
+                if (! $isInscrit) {
+                    $status = 403;
+                    $payload = ['message' => 'Vous devez être inscrit à cette formation pour la noter.'];
+                } else {
+                    $validator = Validator::make($request->all(), [
+                        'note' => ['required', 'integer', 'between:1,5'],
+                        'commentaire' => ['required', 'string'],
+                    ]);
+
+                    if ($validator->fails()) {
+                        $status = 400;
+                        $payload = [
+                            'message' => 'Note invalide.',
+                            'erreurs' => $validator->errors(),
+                        ];
+                    } else {
+                        $alreadyRated = Rating::where('user_id', (int) $user->id)
+                            ->where('formation_id', $formation->id)
+                            ->exists();
+
+                        if ($alreadyRated) {
+                            $status = 400;
+                            $payload = ['message' => 'Vous avez déjà noté cette formation.'];
+                        } else {
+                            $rating = Rating::create([
+                                'user_id' => (int) $user->id,
+                                'formation_id' => $formation->id,
+                                'note' => (int) $request->input('note'),
+                                'commentaire' => (string) $request->input('commentaire'),
+                            ]);
+                            $payload = ['rating' => $rating];
+                        }
+                    }
+                }
+            }
         }
-
-        $formation = Formation::find($id);
-        if (! $formation) {
-            return response()->json(['message' => 'Formation introuvable'], 404);
-        }
-
-        $isInscrit = Inscription::where('utilisateur_id', (int) $user->id)
-            ->where('formation_id', $formation->id)
-            ->exists();
-
-        if (! $isInscrit) {
-            return response()->json(['message' => 'Vous devez être inscrit à cette formation pour la noter.'], 403);
-        }
-
-        $validator = Validator::make($request->all(), [
-            'note' => ['required', 'integer', 'between:1,5'],
-            'commentaire' => ['required', 'string'],
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Note invalide.',
-                'erreurs' => $validator->errors(),
-            ], 400);
-        }
-
-        $alreadyRated = Rating::where('user_id', (int) $user->id)
-            ->where('formation_id', $formation->id)
-            ->exists();
-
-        if ($alreadyRated) {
-            return response()->json(['message' => 'Vous avez déjà noté cette formation.'], 400);
-        }
-
-        $rating = Rating::create([
-            'user_id' => (int) $user->id,
-            'formation_id' => $formation->id,
-            'note' => (int) $request->input('note'),
-            'commentaire' => (string) $request->input('commentaire'),
-        ]);
-
-        return response()->json(['rating' => $rating], 201);
+        return response()->json($payload, $status);
     }
 }
