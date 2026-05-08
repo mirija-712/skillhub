@@ -64,6 +64,11 @@ class Utilisateur extends Authenticatable implements JWTSubject
         return $this->hasMany(Inscription::class);
     }
 
+    public function ratings(): HasMany
+    {
+        return $this->hasMany(Rating::class, 'user_id');
+    }
+
     public function isFormateur(): bool
     {
         return $this->role === 'formateur';

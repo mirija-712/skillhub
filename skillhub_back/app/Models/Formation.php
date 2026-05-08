@@ -85,6 +85,12 @@ class Formation extends Model
         return $this->hasMany(Inscription::class);
     }
 
+    /** Relation : avis/notes laissés par les apprenants inscrits. */
+    public function ratings(): HasMany
+    {
+        return $this->hasMany(Rating::class, 'formation_id');
+    }
+
     /** Relation : modules (chapitres) de la formation */
     public function modules(): HasMany
     {

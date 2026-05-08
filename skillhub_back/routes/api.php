@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\CategorieFormationController;
 use App\Http\Controllers\Api\FormationController;
 use App\Http\Controllers\Api\InscriptionController;
 use App\Http\Controllers\Api\ModuleController;
+use App\Http\Controllers\Api\RatingController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -43,6 +44,7 @@ Route::middleware('auth.remote')->group(function () {
         Route::delete('formations/{formationId}/inscription', [InscriptionController::class, 'destroy']);
         Route::get('apprenant/formations', [InscriptionController::class, 'index']);
         Route::put('formations/{formationId}/progression', [InscriptionController::class, 'updateProgression']);
+        Route::post('formations/{id}/noter', [RatingController::class, 'store'])->whereNumber('id');
         Route::put('formations/{formationId}/modules/{module}/completion', [ModuleController::class, 'updateCompletion'])
             ->whereNumber('formationId');
     });

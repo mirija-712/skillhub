@@ -171,6 +171,299 @@ Les routes métier ci-dessous exigent **`Authorization: Bearer <token>`** où le
 - **GET** `/api/apprenant/formations` — Formations suivies (avec progression).
 - **PUT** `/api/formations/{formationId}/progression` — Mettre à jour la progression (0–100).
 
+### Notation des formations (apprenant)
+
+Cette fonctionnalité permet à un apprenant **authentifié et inscrit** à une formation de laisser un avis.
+
+- **POST** `/api/formations/{id}/noter` — Créer une note + commentaire pour une formation.
+  - Auth: `Authorization: Bearer <token>` (token validé par `auth.remote`).
+  - Accès: rôle `participant` uniquement.
+  - Corps JSON attendu:
+
+```json
+{
+  "note": 4,
+  "commentaire": "Très bonne formation, j'ai beaucoup appris !"
+}
+```
+
+Règles métier:
+- Un apprenant ne peut noter une formation **qu'une seule fois**.
+- La `note` doit être un entier **entre 1 et 5**.
+- L'apprenant doit être **inscrit** à la formation.
+
+Codes de réponse pour `POST /api/formations/{id}/noter`:
+- **201** — Rating créé avec succès (`rating` renvoyé en JSON).
+- **400** — Note invalide ou formation déjà notée par cet apprenant.
+- **403** — Apprenant non inscrit à la formation (ou rôle non apprenant).
+- **401** — Requête sans token ou token invalide.
+
+### Détail formation enrichi
+
+L'endpoint public **GET** `/api/formations/{id}` inclut désormais:
+- `note_moyenne` — moyenne des notes (arrondie à 2 décimales, `null` s'il n'y a aucun avis),
+- `nombre_avis` — nombre total d'avis.
+
+#### Exemple de réponse `GET /api/formations/{id}` (avec métriques d'avis)
+
+```json
+{
+  "formation": {
+    "id": 12,
+    "nom": "Laravel Avancé",
+    "description": "API et architecture",
+    "note_moyenne": 4.33,
+    "nombre_avis": 3
+  }
+}
+```
+
+### Détails techniques de l'implémentation (notation)
+
+Cette section décrit précisément les fichiers modifiés et le comportement métier.
+
+#### 1) Route API
+
+Fichier: `routes/api.php`
+
+```php
+Route::middleware('auth.remote')->group(function () {
+    Route::middleware('apprenant')->group(function () {
+        Route::post('formations/{id}/noter', [RatingController::class, 'store'])
+            ->whereNumber('id');
+    });
+});
+```
+
+Effets:
+- `auth.remote` vérifie le `Bearer` auprès de Spring (`/auth/me`).
+- `apprenant` exige le rôle `participant`.
+
+#### 2) Modèle `Rating`
+
+Fichier: `app/Models/Rating.php`
+
+```php
+class Rating extends Model
+{
+    protected $table = 'ratings';
+
+    protected $fillable = [
+        'user_id',
+        'formation_id',
+        'note',
+        'commentaire',
+    ];
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(Utilisateur::class, 'user_id');
+    }
+
+    public function formation(): BelongsTo
+    {
+        return $this->belongsTo(Formation::class, 'formation_id');
+    }
+}
+```
+
+#### 3) Migration `ratings`
+
+Fichier: `database/migrations/2026_05_08_100000_create_ratings_table.php`
+
+```php
+Schema::create('ratings', function (Blueprint $table) {
+    $table->id();
+    $table->foreignId('user_id')->constrained('utilisateurs')->cascadeOnDelete();
+    $table->foreignId('formation_id')->constrained('formations')->cascadeOnDelete();
+    $table->unsignedTinyInteger('note');
+    $table->text('commentaire');
+    $table->timestamps();
+
+    $table->unique(['user_id', 'formation_id']);
+});
+```
+
+Points importants:
+- FK vers `utilisateurs` et `formations`.
+- contrainte d'unicité `(user_id, formation_id)` pour garantir un seul avis.
+- la plage de note (1..5) est validée côté contrôleur (retour `400`).
+
+#### 4) Contrôleur de notation
+
+Fichier: `app/Http/Controllers/Api/RatingController.php`
+
+```php
+public function store(Request $request, int $id): JsonResponse
+{
+    $user = $request->user();
+    if (! $user) {
+        return response()->json(['message' => 'Token manquant ou invalide. Veuillez vous reconnecter.'], 401);
+    }
+
+    $formation = Formation::find($id);
+    if (! $formation) {
+        return response()->json(['message' => 'Formation introuvable'], 404);
+    }
+
+    $isInscrit = Inscription::where('utilisateur_id', (int) $user->id)
+        ->where('formation_id', $formation->id)
+        ->exists();
+    if (! $isInscrit) {
+        return response()->json(['message' => 'Vous devez être inscrit à cette formation pour la noter.'], 403);
+    }
+
+    $validator = Validator::make($request->all(), [
+        'note' => ['required', 'integer', 'between:1,5'],
+        'commentaire' => ['required', 'string'],
+    ]);
+    if ($validator->fails()) {
+        return response()->json(['message' => 'Note invalide.', 'erreurs' => $validator->errors()], 400);
+    }
+
+    $alreadyRated = Rating::where('user_id', (int) $user->id)
+        ->where('formation_id', $formation->id)
+        ->exists();
+    if ($alreadyRated) {
+        return response()->json(['message' => 'Vous avez déjà noté cette formation.'], 400);
+    }
+
+    $rating = Rating::create([
+        'user_id' => (int) $user->id,
+        'formation_id' => $formation->id,
+        'note' => (int) $request->input('note'),
+        'commentaire' => (string) $request->input('commentaire'),
+    ]);
+
+    return response()->json(['rating' => $rating], 201);
+}
+```
+
+Ordre logique des contrôles:
+1. Authentification (`401`)
+2. Existence formation (`404`)
+3. Inscription de l'apprenant (`403`)
+4. Validation payload (`400`)
+5. Doublon de notation (`400`)
+6. Création (`201`)
+
+#### 5) Enrichissement du détail formation (moyenne + nombre d'avis)
+
+Fichier: `app/Http/Controllers/Api/FormationController.php`
+
+```php
+$formation = Formation::with(['formateur:id,nom,prenom', 'categorie:id,libelle', 'modules'])
+    ->withCount('inscriptions')
+    ->withCount('ratings')
+    ->withAvg('ratings', 'note')
+    ->find($id);
+
+$formation->note_moyenne = $formation->ratings_avg_note !== null
+    ? round((float) $formation->ratings_avg_note, 2)
+    : null;
+$formation->nombre_avis = (int) $formation->ratings_count;
+unset($formation->ratings_avg_note, $formation->ratings_count);
+```
+
+#### 6) Relations Eloquent ajoutées
+
+Fichiers:
+- `app/Models/Formation.php`
+- `app/Models/Utilisateur.php`
+
+```php
+// Formation.php
+public function ratings(): HasMany
+{
+    return $this->hasMany(Rating::class, 'formation_id');
+}
+
+// Utilisateur.php
+public function ratings(): HasMany
+{
+    return $this->hasMany(Rating::class, 'user_id');
+}
+```
+
+### Scénarios de test manuel (Postman / curl)
+
+> Remplacer `{{BASE_URL}}` (ex: `http://localhost:8000`) et `{{TOKEN_APPRENANT}}`.
+
+#### 1) Cas nominal (201)
+
+```bash
+curl -X POST "{{BASE_URL}}/api/formations/1/noter" \
+  -H "Authorization: Bearer {{TOKEN_APPRENANT}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"note\":4,\"commentaire\":\"Très bonne formation, j'ai beaucoup appris !\"}"
+```
+
+#### 2) Même apprenant note 2 fois (400)
+
+Refaire exactement la même requête.
+
+#### 3) Note invalide (400)
+
+```bash
+curl -X POST "{{BASE_URL}}/api/formations/1/noter" \
+  -H "Authorization: Bearer {{TOKEN_APPRENANT}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"note\":6,\"commentaire\":\"Invalide\"}"
+```
+
+#### 4) Apprenant non inscrit (403)
+
+Utiliser un token d'apprenant qui n'a pas d'inscription à la formation ciblée.
+
+#### 5) Sans token (401)
+
+```bash
+curl -X POST "{{BASE_URL}}/api/formations/1/noter" \
+  -H "Content-Type: application/json" \
+  -d "{\"note\":4,\"commentaire\":\"Avis\"}"
+```
+
+### Scénarios de test automatisé (PHPUnit)
+
+Fichier de test: `tests/Feature/RatingControllerTest.php`
+
+Commandes:
+
+```bash
+php artisan test --filter=RatingControllerTest
+php artisan test --filter=FormationControllerTest
+```
+
+Extrait des assertions clés:
+
+```php
+$response->assertStatus(201)->assertJsonPath('rating.note', 4);
+$response->assertStatus(400); // déjà noté
+$response->assertStatus(400); // note hors plage
+$response->assertStatus(403); // non inscrit
+$response->assertStatus(401); // sans token
+```
+
+### Dépannage rapide (erreurs fréquentes)
+
+#### `php artisan migrate` échoue avec `SQLSTATE[HY000] [2002]`
+
+Cause probable: MySQL non démarré ou mauvais host/port dans `.env`.
+
+Checklist:
+- vérifier `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`
+- démarrer le service DB (local ou Docker)
+- vider le cache config:
+
+```bash
+php artisan config:clear
+php artisan migrate
+```
+
+#### Les tests passent mais `migrate` échoue
+
+C'est possible: les tests utilisent souvent SQLite en mémoire (`phpunit.xml`) alors que `migrate` utilise ta DB de `.env`.
+
 #### Regle metier : maximum 5 formations par apprenant
 
 Lors d’un `POST /api/formations/{formationId}/inscription`, l’API doit refuser l’inscription si l’apprenant a deja 5 inscriptions actives.
@@ -198,6 +491,8 @@ Images : `storage/app/public/formations/`. Historisation : `App\Services\Activit
 - **categorie_formations** : `id`, `libelle`, `created_at`, `updated_at`.
 - **formations** : id, id_formateur, id_categorie, nom, description, duree_heures, prix, level, statut, image_url, created_at, updated_at.
 - **inscriptions** : id, utilisateur_id, formation_id, progression, date_inscription, created_at.
+- **ratings** : `id`, `user_id`, `formation_id`, `note` (1..5), `commentaire`, `created_at`, `updated_at`.  
+  Contrainte d'unicité: (`user_id`, `formation_id`) pour garantir un seul avis par apprenant et par formation.
 
 ---
 
@@ -213,8 +508,16 @@ Tests avec **SQLite en mémoire** (`phpunit.xml`).
 
 - `php artisan test` — Tous les tests.
 - `php artisan test --filter FormationControllerTest` — Tests formations uniquement.
+- `php artisan test --filter RatingControllerTest` — Tests de notation (201/400/403/401).
 
 **FormationControllerTest** : 401 sans token ; 201 avec formateur valide ; apprenant ne peut pas créer de formation (403) ; formateur ne peut pas modifier la formation d’un autre (403). Les tests **AuthTest** historiques (routes `/api/auth/*` Laravel) peuvent être obsolètes si les routes auth locales ont été retirées.
+
+**RatingControllerTest** couvre:
+- apprenant inscrit + note valide => **201**
+- même apprenant qui note 2 fois => **400**
+- note hors plage 1..5 => **400**
+- apprenant non inscrit => **403**
+- requête sans token => **401**
 
 ---
 
@@ -233,6 +536,8 @@ Tests avec **SQLite en mémoire** (`phpunit.xml`).
 
 - **401** — Token manquant, invalide ou expiré.
 - **403** — Accès formateurs uniquement, ou formation appartenant à un autre formateur.
+- **403** — Ou apprenant non inscrit qui tente de noter une formation.
 - **404** — Ressource introuvable.
 - **422** — Erreur de validation ; corps : `message` et `erreurs`.
+- **400** — Données métier invalides pour la notation (note invalide, déjà noté).
 - **500** — Erreur serveur.

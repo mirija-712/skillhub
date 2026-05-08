@@ -100,11 +100,19 @@ class FormationController extends Controller
     {
         $formation = Formation::with(['formateur:id,nom,prenom', 'categorie:id,libelle', 'modules'])
             ->withCount('inscriptions')
+            ->withCount('ratings')
+            ->withAvg('ratings', 'note')
             ->find($id);
 
         if (! $formation) {
             return response()->json(['message' => 'Formation introuvable'], 404);
         }
+
+        $formation->note_moyenne = $formation->ratings_avg_note !== null
+            ? round((float) $formation->ratings_avg_note, 2)
+            : null;
+        $formation->nombre_avis = (int) $formation->ratings_count;
+        unset($formation->ratings_avg_note, $formation->ratings_count);
 
         return response()->json(['formation' => $formation]);
     }
