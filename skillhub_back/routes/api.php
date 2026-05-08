@@ -20,7 +20,6 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('categories', [CategorieFormationController::class, 'index']);
-$formationOwnerRoute = 'formations/{formation}';
 
 // --- Formations : liste et détail publics (catalogue, page accueil). Création / modification / suppression protégées.
 Route::get('formations', [FormationController::class, 'index']);
@@ -32,9 +31,9 @@ Route::middleware('auth.remote')->group(function () {
     Route::middleware('formateur')->group(function () {
         Route::get('formateur/{id}/apprenants', [InscriptionController::class, 'apprenantsForFormateur'])->whereNumber('id');
         Route::post('formations', [FormationController::class, 'store']);
-        Route::put($formationOwnerRoute, [FormationController::class, 'update']);
-        Route::post($formationOwnerRoute, [FormationController::class, 'update']);
-        Route::delete($formationOwnerRoute, [FormationController::class, 'destroy']);
+        Route::put('formations/{formation}', [FormationController::class, 'update']);
+        Route::post('formations/{formation}', [FormationController::class, 'update']);
+        Route::delete('formations/{formation}', [FormationController::class, 'destroy']);
         Route::post('formations/{formationId}/modules', [ModuleController::class, 'store'])->whereNumber('formationId');
         Route::put('modules/{module}', [ModuleController::class, 'update']);
         Route::delete('modules/{module}', [ModuleController::class, 'destroy']);
