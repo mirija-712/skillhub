@@ -182,4 +182,68 @@ class RatingControllerTest extends TestCase
             ->assertJsonPath('message', 'Note invalide.')
             ->assertJsonStructure(['erreurs' => ['commentaire']]);
     }
+
+    public function test_rating_with_missing_note_returns_400_and_errors(): void
+    {
+        $categorie = CategorieFormation::factory()->create();
+        $formateur = Utilisateur::factory()->formateur()->create();
+        $apprenant = Utilisateur::factory()->participant()->create();
+        $formation = Formation::factory()->create([
+            'id_formateur' => $formateur->id,
+            'id_categorie' => $categorie->id,
+        ]);
+        Inscription::create([
+            'utilisateur_id' => $apprenant->id,
+            'formation_id' => $formation->id,
+            'progression' => 0,
+        ]);
+
+        $response = $this->withRemoteAuthAs($apprenant->id, 'participant', $apprenant->email)
+            ->postJson("/api/formations/{$formation->id}/noter", [
+                'commentaire' => 'Pas de note',
+            ]);
+
+        $response->assertStatus(400)
+            ->assertJsonPath('message', 'Note invalide.')
+            ->assertJsonStructure(['erreurs' => ['note']]);
+    }
+
+    public function test_rating_with_non_integer_note_returns_400(): void
+    {
+        $categorie = CategorieFormation::factory()->create();
+        $formateur = Utilisateur::factory()->formateur()->create();
+        $apprenant = Utilisateur::factory()->participant()->create();
+        $formation = Formation::factory()->create([
+            'id_formateur' => $formateur->id,
+            'id_categorie' => $categorie->id,
+        ]);
+        Inscription::create([
+            'utilisateur_id' => $apprenant->id,
+            'formation_id' => $formation->id,
+            'progression' => 0,
+        ]);
+
+        $response = $this->withRemoteAuthAs($apprenant->id, 'participant', $apprenant->email)
+            ->postJson("/api/formations/{$formation->id}/noter", [
+                'note' => 'quatre',
+                'commentaire' => 'Type invalide',
+            ]);
+
+        $response->assertStatus(400)
+            ->assertJsonPath('message', 'Note invalide.');
+    }
+
+    public function test_rating_controller_returns_401_when_middlewares_are_disabled_and_user_missing(): void
+    {
+        $this->withoutMiddleware();
+        $formation = Formation::factory()->create();
+
+        $response = $this->postJson("/api/formations/{$formation->id}/noter", [
+            'note' => 4,
+            'commentaire' => 'Avis',
+        ]);
+
+        $response->assertStatus(401)
+            ->assertJsonPath('message', 'Token manquant ou invalide. Veuillez vous reconnecter.');
+    }
 }
