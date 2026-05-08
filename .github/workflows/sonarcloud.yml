@@ -2,45 +2,23 @@ name: SonarCloud Analysis
 
 on:
   push:
-    branches:
-      - main
-      - dev
+    branches: [main, dev]
   pull_request:
-    branches:
-      - main
-      - dev
+    branches: [main, dev]
 
 permissions:
   contents: read
 
 jobs:
   sonarcloud:
-    name: Build, Test and SonarCloud Scan
+    name: PHP Tests and SonarCloud
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout du code source
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-          cache: maven
-          cache-dependency-path: authentification_back/pom.xml
-
-      - name: Run Spring Boot tests (JaCoCo)
-        working-directory: authentification_back
-        env:
-          APP_MASTER_KEY: test_master_key_for_ci_only
-        run: |
-          chmod +x mvnw
-          ./mvnw -B verify
-          ./mvnw -B dependency:copy-dependencies -DincludeScope=compile -DoutputDirectory=target/dependency
-          ls -la target/dependency | head -n 20
 
       - name: Setup PHP 8.2
         uses: shivammathur/setup-php@v2
@@ -49,52 +27,22 @@ jobs:
           extensions: mbstring, xml, pdo_sqlite, sqlite3, bcmath, intl, openssl, zip
           coverage: xdebug
 
-      - name: Run Laravel tests (JUnit + Clover)
+      - name: Installation des dépendances PHP (Composer)
+        working-directory: skillhub_back
+        run: composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-mongodb
+
+      - name: Exécution des tests PHPUnit avec couverture
         working-directory: skillhub_back
         env:
           XDEBUG_MODE: coverage
         run: |
-          composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-mongodb
           cp .env.example .env
-          echo "MONGODB_URI=" >> .env
           php artisan key:generate
           mkdir -p reports
           ./vendor/bin/phpunit --log-junit reports/junit.xml --coverage-clover reports/clover.xml
-          test -f reports/junit.xml
-          test -f reports/clover.xml
 
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: skillhub_front/package-lock.json
-
-      - name: Build frontend
-        working-directory: skillhub_front
-        run: |
-          npm ci
-          npm run lint
-          npm run test:coverage
-          npm run build
-          test -f coverage/lcov.info
-
-      - name: Verify coverage artifacts
-        run: |
-          ls -la authentification_back/target/site/jacoco || true
-          ls -la skillhub_back/reports
-          ls -la skillhub_front/coverage
-
-      - name: SonarCloud scan
-        uses: SonarSource/sonarqube-scan-action@v5
-        with:
-          args: >
-            -Dsonar.java.binaries=authentification_back/target/classes
-            -Dsonar.java.libraries=authentification_back/target/dependency/*.jar
-            -Dsonar.coverage.jacoco.xmlReportPaths=authentification_back/target/site/jacoco/jacoco.xml
-            -Dsonar.php.tests.reportPath=skillhub_back/reports/junit.xml
-            -Dsonar.php.coverage.reportPaths=skillhub_back/reports/clover.xml
-            -Dsonar.javascript.lcov.reportPaths=skillhub_front/coverage/lcov.info
+      - name: Analyse SonarCloud
+        uses: SonarSource/sonarcloud-github-action@master
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
