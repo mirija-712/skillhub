@@ -42,7 +42,7 @@ jobs:
           ./vendor/bin/phpunit --log-junit reports/junit.xml --coverage-clover reports/clover.xml
 
       - name: Analyse SonarCloud
-        uses: SonarSource/sonarcloud-github-action@master
+        uses: SonarSource/sonarqube-scan-action@v5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
