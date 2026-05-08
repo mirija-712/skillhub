@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   sonarcloud:
-    name: PHP Tests and SonarCloud
+    name: Java + PHP Tests and SonarCloud
     runs-on: ubuntu-latest
 
     steps:
@@ -19,6 +19,23 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+          cache-dependency-path: authentification_back/pom.xml
+
+      - name: Exécution des tests Java (JaCoCo)
+        working-directory: authentification_back
+        env:
+          APP_MASTER_KEY: test_master_key_for_ci_only
+        run: |
+          chmod +x mvnw
+          ./mvnw -B verify
+          ./mvnw -B dependency:copy-dependencies -DincludeScope=compile -DoutputDirectory=target/dependency
 
       - name: Setup PHP 8.2
         uses: shivammathur/setup-php@v2
@@ -40,6 +57,12 @@ jobs:
           php artisan key:generate
           mkdir -p reports
           ./vendor/bin/phpunit --log-junit reports/junit.xml --coverage-clover reports/clover.xml
+
+      - name: Vérification des rapports de couverture
+        run: |
+          test -f authentification_back/target/site/jacoco/jacoco.xml
+          test -f skillhub_back/reports/junit.xml
+          test -f skillhub_back/reports/clover.xml
 
       - name: Analyse SonarCloud
         uses: SonarSource/sonarqube-scan-action@v5
